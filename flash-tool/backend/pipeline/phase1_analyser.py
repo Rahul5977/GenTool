@@ -202,6 +202,10 @@ def _fix_clip(clip: ClipBrief) -> tuple[ClipBrief, list[str]]:
 
     elif actual < lo:
         clip.dialogue, new_count = _expand_dialogue(clip.dialogue, lo)
+        # Expansion can overshoot the ceiling — trim if needed
+        if new_count > hi:
+            clip.dialogue = _trim_dialogue(clip.dialogue, hi)
+            new_count = _count_words(clip.dialogue)
         issues.append(
             f"Clip {clip.clip_number}: word count {actual} below {lo} for {duration}s — "
             f"expanded to {new_count} words"
@@ -223,10 +227,12 @@ def _count_words(text: str) -> int:
 
 
 def _remove_dashes(text: str) -> str:
-    # em-dash with surrounding spaces → comma
+    # em-dash (with or without surrounding spaces) → comma
     text = re.sub(r"\s*—\s*", ", ", text)
-    # bare hyphen between words → " aur "
+    # spaced hyphen " - " → " aur "
     text = re.sub(r"\s+-\s+", " aur ", text)
+    # bare compound-word hyphen "word-word" → "word word"
+    text = re.sub(r"(\w)-(\w)", r"\1 \2", text)
     return text.strip()
 
 

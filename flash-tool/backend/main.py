@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Flash Tool API", version="2.0.0")
 
+
+@app.on_event("startup")
+async def _startup():
+    os.makedirs(config.TMP_DIR, exist_ok=True)
+    logger.info("Flash Tool v2 started — TMP_DIR=%s", config.TMP_DIR)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -56,6 +62,25 @@ _SSE_HEARTBEAT_SEC = 15    # seconds between keep-alive pings
 @app.get("/api/v2/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
+
+
+@app.get("/api/v2/jobs/list")
+async def list_jobs():
+    """Return a lightweight summary of all jobs (for dashboard)."""
+    jobs = job_store.list_jobs()
+    return [
+        {
+            "job_id": j.job_id,
+            "status": j.status,
+            "coach": j.coach,
+            "num_clips": j.num_clips,
+            "progress": j.progress,
+            "error": j.error,
+            "created_at": j.created_at.isoformat(),
+            "updated_at": j.updated_at.isoformat(),
+        }
+        for j in sorted(jobs, key=lambda j: j.created_at, reverse=True)
+    ]
 
 
 # ---------------------------------------------------------------------------

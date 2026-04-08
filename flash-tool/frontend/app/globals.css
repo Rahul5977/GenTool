@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --bg:        #0f0f0f;
+  --bg-card:   #161616;
+  --bg-input:  #1a1a1a;
+  --border:    #2a2a2a;
+  --green:     #1a5c3a;
+  --green-hi:  #22c55e;
+  --green-dim: #166534;
+  --text:      #e8e8e8;
+  --text-dim:  #4b5563;
+  --text-mid:  #9ca3af;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  --blue:      #3b82f6;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2d2d2d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3d3d3d; }
+
+:focus-visible { outline: 2px solid var(--green-hi); outline-offset: 2px; }
+
+.mono { font-family: "JetBrains Mono", "Fira Code", Consolas, monospace; }
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.25s ease-out forwards; }
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  50%       { box-shadow: 0 0 14px 3px rgba(34,197,94,0.18); }
+}
+.glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
