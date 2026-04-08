@@ -192,7 +192,7 @@ export default function ProgressPage() {
         </div>
         <div className="h-2 rounded-full bg-[#1a1a1a] overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#1a5c3a] to-green-400 transition-all duration-700"
+            className="h-full rounded-full bg-linear-to-r from-[#1a5c3a] to-green-400 transition-all duration-700"
             style={{ width: `${progress}%` }}
           />
         </div>
