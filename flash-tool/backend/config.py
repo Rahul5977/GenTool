@@ -1,10 +1,10 @@
 """Flash Tool configuration — loaded from .env file.
 
-MODEL REFERENCE (as of google-genai SDK 1.0.0):
-  GEMINI_MODEL        = gemini-2.5-pro-preview-03-25   (text, JSON generation)
-  IMAGEN_MODEL        = imagen-3.0-generate-001        (Frame 0, text→image)
-  GEMINI_IMAGE_MODEL  = gemini-2.0-flash-preview-image-generation  (Frames 1-N, image edit)
-  VEO_MODEL           = veo-2.0-generate-001           (video clips)
+MODEL REFERENCE:
+  GEMINI_MODEL        = gemini-2.5-pro          (text, JSON generation)
+  IMAGEN_MODEL        = imagen-4.0-generate-001 (Frame 0, text→image)
+  GEMINI_IMAGE_MODEL  = gemini-2.5-flash-image  (Frames 1-N, image edit)
+  VEO_MODEL           = veo-2.0-generate-001    (video clips)
 
 IMPORTANT — model string rules:
   - NEVER add "models/" prefix to any model ID. The SDK adds it automatically.
@@ -22,13 +22,13 @@ load_dotenv()
 GOOGLE_API_KEY       = os.getenv("GOOGLE_API_KEY", "")
 
 # Text generation — script analysis, prompt generation, verification
-GEMINI_MODEL         = os.getenv("GEMINI_MODEL", "gemini-2.5-pro-preview-03-25")
+GEMINI_MODEL         = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 
 # Frame 0: text-to-image (Imagen 3)
-IMAGEN_MODEL         = os.getenv("IMAGEN_MODEL", "imagen-3.0-generate-001")
+IMAGEN_MODEL         = os.getenv("IMAGEN_MODEL", "imagen-4.0-generate-001")
 
 # Frames 1-N: image editing (Gemini Flash Image)
-GEMINI_IMAGE_MODEL   = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-preview-image-generation")
+GEMINI_IMAGE_MODEL   = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # Video generation
 VEO_MODEL            = os.getenv("VEO_MODEL", "veo-2.0-generate-001")

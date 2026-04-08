@@ -85,7 +85,6 @@ class VeoClient:
             aspect_ratio=aspect_ratio,
             number_of_videos=1,
             resolution="1080p",
-            enhance_prompt=True,
             last_frame=last_frame,
         )
 

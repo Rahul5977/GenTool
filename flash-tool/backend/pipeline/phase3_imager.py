@@ -189,10 +189,10 @@ def _generate_reference_frame(
     # ── Hard fail if both attempts failed ─────────────────────────────────
     if image_b64 is None:
         raise RuntimeError(
-            "Frame 0 generation failed: both Imagen 3 and Gemini Image returned no image.\n"
+            "Frame 0 generation failed: both Imagen 4 and Gemini Image returned no image.\n"
             "Check:\n"
-            "  1. IMAGEN_MODEL in .env = 'imagen-3.0-generate-001' (no 'models/' prefix)\n"
-            "  2. GEMINI_IMAGE_MODEL in .env = 'gemini-2.0-flash-preview-image-generation'\n"
+            "  1. IMAGEN_MODEL in .env = 'imagen-4.0-generate-001' (no 'models/' prefix)\n"
+            "  2. GEMINI_IMAGE_MODEL in .env = 'gemini-2.5-flash-image'\n"
             "  3. GOOGLE_API_KEY has access to both models\n"
             "  4. Prompt does not contain blocked terms (run with DEBUG logging to see sanitized prompt)"
         )

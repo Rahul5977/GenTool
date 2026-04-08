@@ -7,6 +7,7 @@ collects results in order, and saves MP4 files to TMP_DIR.
 import base64
 import logging
 import os
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
@@ -18,8 +19,8 @@ from ..models import ClipPrompt, KeyFrame
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
-_TRANSIENT_SLEEP_BASE = 15  # seconds; multiplied by attempt number
+MAX_RETRIES = 6
+_TRANSIENT_SLEEP_BASE = 30  # seconds; multiplied by attempt number, plus jitter
 
 
 def generate_all_clips_parallel(
@@ -192,8 +193,9 @@ def generate_single_clip(
                 clip_number, "transient" if is_transient else "non-transient", attempt, exc,
             )
             if is_transient and attempt < MAX_RETRIES:
-                sleep_sec = _TRANSIENT_SLEEP_BASE * attempt
-                logger.info("Phase 4: sleeping %ds before retry", sleep_sec)
+                jitter = random.uniform(0, 15)
+                sleep_sec = _TRANSIENT_SLEEP_BASE * attempt + jitter
+                logger.info("Phase 4: sleeping %.0fs before retry (attempt %d/%d)", sleep_sec, attempt, MAX_RETRIES)
                 time.sleep(sleep_sec)
             elif not is_transient:
                 # Non-transient errors (e.g. bad request) won't improve with retries
@@ -212,8 +214,9 @@ def generate_single_clip(
 def _is_transient(exc: Exception) -> bool:
     """Return True for errors that may resolve on retry (503, timeout, etc.)."""
     msg = str(exc).lower()
-    transient_signals = ("503", "timeout", "timed out", "temporarily unavailable",
-                         "service unavailable", "connection", "reset by peer")
+    transient_signals = ("503", "429", "timeout", "timed out", "temporarily unavailable",
+                         "service unavailable", "unavailable", "high demand",
+                         "connection", "reset by peer", "overloaded")
     return any(s in msg for s in transient_signals)
 
 

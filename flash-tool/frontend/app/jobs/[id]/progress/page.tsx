@@ -13,16 +13,6 @@ interface SseEvent {
   ts: string;
 }
 
-const PHASE_ORDER = [
-  "script_analysis",
-  "prompt_generation",
-  "image_generation",
-  "awaiting",
-  "video_generation",
-  "stitch",
-  "done",
-];
-
 function statusToPhaseIndex(status: string): number {
   const map: Record<string, number> = {
     pending: -1,
@@ -44,19 +34,50 @@ function buildPhases(status: string, clipInfo: { total: number; done: string[] }
     i < idx ? "done" : i === idx ? "active" : "idle";
 
   const clipSublabel =
-    clipInfo.total > 0
-      ? `${clipInfo.done.length}/${clipInfo.total} clips`
-      : undefined;
+    clipInfo.total > 0 ? `${clipInfo.done.length}/${clipInfo.total} clips` : undefined;
 
   return [
-    { id: "analysis",   label: "Script Analysis",     state: phaseOf(0) },
-    { id: "prompting",  label: "Prompt Generation",   state: phaseOf(1) },
-    { id: "imaging",    label: "Image Generation",    state: phaseOf(2) },
-    { id: "awaiting",   label: "Awaiting Review",     state: phaseOf(3) },
-    { id: "generating", label: "Video Generation",    state: phaseOf(4), sublabel: clipSublabel },
-    { id: "stitching",  label: "Stitching",           state: phaseOf(5) },
-    { id: "done",       label: "Done",                state: status === "done" ? "done" : phaseOf(6) },
+    { id: "analysis",   label: "Script Analysis",   state: phaseOf(0) },
+    { id: "prompting",  label: "Prompt Generation", state: phaseOf(1) },
+    { id: "imaging",    label: "Image Generation",  state: phaseOf(2) },
+    { id: "awaiting",   label: "Awaiting Review",   state: phaseOf(3) },
+    { id: "generating", label: "Video Generation",  state: phaseOf(4), sublabel: clipSublabel },
+    { id: "stitching",  label: "Stitching",         state: phaseOf(5) },
+    { id: "done",       label: "Done",              state: status === "done" ? "done" : phaseOf(6) },
   ];
+}
+
+interface CharacterData {
+  age: number;
+  gender: string;
+  skin_tone: string;
+  skin_hex: string;
+  face_shape: string;
+  hair: string;
+  outfit: string;
+  accessories: string[];
+  distinguishing_marks: string[];
+}
+
+interface ClipData {
+  clip_number: number;
+  duration_seconds: number;
+  scene_summary: string;
+  dialogue: string;
+  word_count: number;
+  end_emotion: string;
+  verified: boolean;
+  verification_issues: string[];
+  prompt_preview: string;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <span className="text-[#4b5563]">{label}</span>
+      <span className="text-[#e5e7eb] wrap-break-word">{value}</span>
+    </>
+  );
 }
 
 export default function ProgressPage() {
@@ -67,9 +88,14 @@ export default function ProgressPage() {
   const [clipsDone, setClipsDone] = useState<string[]>([]);
   const [totalClips, setTotalClips] = useState(0);
   const [error, setError] = useState("");
+  const [character, setCharacter] = useState<CharacterData | null>(null);
+  const [setting, setSetting] = useState("");
+  const [background, setBackground] = useState("");
+  const [coach, setCoach] = useState("");
+  const [clipPrompts, setClipPrompts] = useState<ClipData[]>([]);
+  const [expandedClip, setExpandedClip] = useState<number | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
-  // Ref so the onerror closure always sees the latest status without stale closure
   const job_store_ref = useRef<string>("pending");
 
   // Initial status fetch
@@ -85,10 +111,7 @@ export default function ProgressPage() {
     esRef.current = es;
 
     const push = (type: string, data: Record<string, unknown>) => {
-      setEvents((prev) => [
-        ...prev,
-        { type, data, ts: new Date().toLocaleTimeString() },
-      ]);
+      setEvents((prev) => [...prev, { type, data, ts: new Date().toLocaleTimeString() }]);
     };
 
     const handleAny = (type: string) => (ev: MessageEvent) => {
@@ -96,7 +119,17 @@ export default function ProgressPage() {
       try { data = JSON.parse(ev.data); } catch { /* noop */ }
       push(type, data);
 
-      // Side-effects per event type
+      if (type === "phase_done") {
+        if (data.phase === 1 && data.character) {
+          setCharacter(data.character as CharacterData);
+          setSetting(String(data.setting ?? ""));
+          setBackground(String(data.background ?? ""));
+          setCoach(String(data.coach ?? ""));
+        }
+        if (data.phase === 2 && Array.isArray(data.clips)) {
+          setClipPrompts(data.clips as ClipData[]);
+        }
+      }
       if (type === "clip_done") {
         setClipsDone((prev) => [...prev, String(data.clip ?? "")]);
         setTotalClips(Number(data.total ?? 0));
@@ -128,9 +161,6 @@ export default function ProgressPage() {
     eventTypes.forEach((t) => es.addEventListener(t, handleAny(t) as EventListener));
 
     es.onerror = () => {
-      // Only show reconnect noise if the job hasn't already failed/finished.
-      // After a terminal event the EventSource keeps trying to reconnect —
-      // close it instead of logging infinite "dropped" entries.
       const currentJob = job_store_ref.current;
       if (currentJob === "done" || currentJob === "failed") {
         es.close();
@@ -200,7 +230,7 @@ export default function ProgressPage() {
 
       {/* Error banner */}
       {(error || isFailed) && (
-        <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm whitespace-pre-wrap">
           <span className="font-semibold">Pipeline failed: </span>
           {error || jobStatus?.error}
         </div>
@@ -235,6 +265,115 @@ export default function ProgressPage() {
           videoUrl={isDone ? "result" : undefined}
         />
       </div>
+
+      {/* Phase 1 result — character + setting card */}
+      {character && (
+        <div className="mb-6 p-4 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+          <p className="text-xs font-semibold text-[#9ca3af] uppercase tracking-widest mb-3">
+            Script Analysis
+          </p>
+          <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-1.5 text-xs mono">
+            <Row label="Coach" value={coach} />
+            <Row label="Character" value={`${character.age}y ${character.gender}`} />
+            <Row label="Face shape" value={character.face_shape} />
+            <Row label="Skin tone" value={`${character.skin_tone} (${character.skin_hex})`} />
+            <Row label="Hair" value={character.hair} />
+            <Row label="Outfit" value={character.outfit} />
+            {character.accessories.length > 0 && (
+              <Row label="Accessories" value={character.accessories.join(", ")} />
+            )}
+            {character.distinguishing_marks.length > 0 && (
+              <Row label="Marks" value={character.distinguishing_marks.join(", ")} />
+            )}
+            {setting && <Row label="Setting" value={setting} />}
+          </div>
+          {background && (
+            <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+              <p className="text-xs text-[#4b5563] mono mb-1">Background</p>
+              <p className="text-xs text-[#9ca3af] leading-relaxed">{background}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Phase 2 result — clip prompts */}
+      {clipPrompts.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-[#9ca3af] uppercase tracking-widest mb-3">
+            Clip Prompts ({clipPrompts.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {clipPrompts.map((c) => {
+              const isExpanded = expandedClip === c.clip_number;
+              return (
+                <div key={c.clip_number} className="rounded-xl bg-[#161616] border border-[#2a2a2a] overflow-hidden">
+                  {/* Header row */}
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-green-400 mono">
+                        Clip {c.clip_number}
+                      </span>
+                      <span className="text-xs text-[#4b5563] mono">{c.duration_seconds}s · {c.word_count} words</span>
+                      {c.verified ? (
+                        <span className="text-xs text-green-500 mono">✓ verified</span>
+                      ) : (
+                        <span className="text-xs text-amber-500 mono">⚠ unverified</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setExpandedClip(isExpanded ? null : c.clip_number)}
+                      className="text-xs text-[#4b5563] hover:text-white transition-colors mono"
+                    >
+                      {isExpanded ? "▲ less" : "▼ more"}
+                    </button>
+                  </div>
+
+                  {/* Scene summary */}
+                  <div className="px-3 pb-2">
+                    <p className="text-xs text-[#9ca3af]">{c.scene_summary}</p>
+                  </div>
+
+                  {/* Dialogue */}
+                  <div className="px-3 pb-2">
+                    <p className="text-xs text-[#4b5563] mono mb-0.5">Dialogue</p>
+                    <p className="text-xs text-[#e5e7eb] italic leading-relaxed">
+                      &ldquo;{c.dialogue}&rdquo;
+                    </p>
+                  </div>
+
+                  {/* Expanded: end emotion + verification issues + prompt preview */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 border-t border-[#2a2a2a] pt-2 flex flex-col gap-2">
+                      {c.end_emotion && (
+                        <div>
+                          <p className="text-xs text-[#4b5563] mono mb-0.5">End emotion</p>
+                          <p className="text-xs text-[#9ca3af]">{c.end_emotion}</p>
+                        </div>
+                      )}
+                      {c.verification_issues.length > 0 && (
+                        <div>
+                          <p className="text-xs text-amber-500 mono mb-0.5">Verification issues</p>
+                          {c.verification_issues.map((issue, i) => (
+                            <p key={i} className="text-xs text-amber-400">• {issue}</p>
+                          ))}
+                        </div>
+                      )}
+                      {c.prompt_preview && (
+                        <div>
+                          <p className="text-xs text-[#4b5563] mono mb-0.5">Veo prompt (preview)</p>
+                          <pre className="text-xs text-[#6b7280] whitespace-pre-wrap leading-relaxed font-mono">
+                            {c.prompt_preview}…
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Clip tiles (visible during video generation) */}
       {totalClips > 0 && (
@@ -284,19 +423,17 @@ export default function ProgressPage() {
                 <span className="text-[#4b5563] shrink-0">{ev.ts}</span>
                 <span
                   className={
-                    ev.type === "error"
-                      ? "text-red-400"
-                      : ev.type === "done"
-                      ? "text-green-400"
-                      : ev.type === "awaiting_approval"
-                      ? "text-amber-400"
-                      : "text-[#9ca3af]"
+                    ev.type === "error" ? "text-red-400"
+                    : ev.type === "done" ? "text-green-400"
+                    : ev.type === "awaiting_approval" ? "text-amber-400"
+                    : "text-[#9ca3af]"
                   }
                 >
                   [{ev.type}]
                 </span>
                 <span className="text-[#6b7280] break-all">
                   {Object.entries(ev.data)
+                    .filter(([k]) => !["clips", "character"].includes(k))
                     .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
                     .join("  ")}
                 </span>

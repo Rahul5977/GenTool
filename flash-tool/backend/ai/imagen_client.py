@@ -1,16 +1,16 @@
-"""Imagen 3 client — generates the initial character reference image (Frame 0).
+"""Imagen 4 client — generates the initial character reference image (Frame 0).
 
 WHY THIS EXISTS SEPARATELY FROM gemini_image_client:
-  - Imagen 3 is a dedicated text-to-image model. It generates a character
+  - Imagen 4 is a dedicated text-to-image model. It generates a character
     from a text prompt with no input image.
   - Gemini Flash Image is an image-editing model. It takes an existing image
     and modifies the expression. Used for Frames 1..N.
   - They use different APIs, different configs, different capabilities.
 
 API VERSION NOTE:
-  - Imagen 3 works on the DEFAULT SDK version (v1beta).
+  - Imagen 4 works on the DEFAULT SDK version (v1beta).
   - Do NOT set http_options api_version — any override breaks it.
-  - Model string must be bare: "imagen-3.0-generate-001" (no "models/" prefix).
+  - Model string must be bare: "imagen-4.0-generate-001" (no "models/" prefix).
 """
 
 import logging
@@ -58,7 +58,7 @@ class ImagenClient:
 
         try:
             response = self._client.models.generate_images(
-                model=config.IMAGEN_MODEL,  # must be "imagen-3.0-generate-001", no "models/" prefix
+                model=config.IMAGEN_MODEL,  # must be "imagen-4.0-generate-001", no "models/" prefix
                 prompt=clean_prompt,
                 config=types.GenerateImagesConfig(
                     aspect_ratio="9:16",

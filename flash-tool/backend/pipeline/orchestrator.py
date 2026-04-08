@@ -102,7 +102,25 @@ def _phase1(job_id: str, request: CreateJobRequest) -> None:
     brief = analyse_script(request.script, request.num_clips, request.coach)
     job_store.update(job_id, production_brief=brief)
 
-    emit_event(job_id, "phase_done", {"phase": 1})
+    char = brief.character
+    emit_event(job_id, "phase_done", {
+        "phase": 1,
+        "character": {
+            "age": char.age,
+            "gender": char.gender,
+            "skin_tone": char.skin_tone,
+            "skin_hex": char.skin_hex,
+            "face_shape": char.face_shape,
+            "hair": char.hair,
+            "outfit": char.outfit,
+            "accessories": char.accessories,
+            "distinguishing_marks": char.distinguishing_marks,
+        },
+        "setting": brief.setting,
+        "background": brief.locked_background,
+        "coach": brief.coach,
+        "num_clips": len(brief.clips),
+    })
     logger.info("Job %s: Phase 1 complete", job_id)
 
 
@@ -118,7 +136,23 @@ def _phase2(job_id: str) -> None:
     clips = generate_prompts(brief)
     job_store.update(job_id, clips=clips)
 
-    emit_event(job_id, "phase_done", {"phase": 2})
+    emit_event(job_id, "phase_done", {
+        "phase": 2,
+        "clips": [
+            {
+                "clip_number": c.clip_number,
+                "duration_seconds": c.duration_seconds,
+                "scene_summary": c.scene_summary,
+                "dialogue": c.dialogue,
+                "word_count": c.word_count,
+                "end_emotion": c.end_emotion,
+                "verified": c.verified,
+                "verification_issues": c.verification_issues,
+                "prompt_preview": c.prompt[:500],
+            }
+            for c in clips
+        ],
+    })
     logger.info("Job %s: Phase 2 complete (%d clips)", job_id, len(clips))
 
 
