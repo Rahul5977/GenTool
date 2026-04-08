@@ -69,6 +69,8 @@ export default function ProgressPage() {
   const [error, setError] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
+  // Ref so the onerror closure always sees the latest status without stale closure
+  const job_store_ref = useRef<string>("pending");
 
   // Initial status fetch
   useEffect(() => {
@@ -100,7 +102,9 @@ export default function ProgressPage() {
         setTotalClips(Number(data.total ?? 0));
       }
       if (type === "done") {
+        job_store_ref.current = "done";
         api.getJobStatus(id).then(setJobStatus).catch(() => {});
+        es.close();
         setTimeout(() => router.push(`/jobs/${id}/result`), 1200);
       }
       if (type === "awaiting_approval") {
@@ -110,8 +114,10 @@ export default function ProgressPage() {
         api.getJobStatus(id).then(setJobStatus).catch(() => {});
       }
       if (type === "error") {
+        job_store_ref.current = "failed";
         setError(String(data.message ?? "Pipeline error"));
         api.getJobStatus(id).then(setJobStatus).catch(() => {});
+        es.close();
       }
     };
 
@@ -122,7 +128,15 @@ export default function ProgressPage() {
     eventTypes.forEach((t) => es.addEventListener(t, handleAny(t) as EventListener));
 
     es.onerror = () => {
-      push("connection", { message: "SSE connection dropped — will retry" });
+      // Only show reconnect noise if the job hasn't already failed/finished.
+      // After a terminal event the EventSource keeps trying to reconnect —
+      // close it instead of logging infinite "dropped" entries.
+      const currentJob = job_store_ref.current;
+      if (currentJob === "done" || currentJob === "failed") {
+        es.close();
+      } else {
+        push("connection", { message: "SSE reconnecting…" });
+      }
     };
 
     return () => { es.close(); };

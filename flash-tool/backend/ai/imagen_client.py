@@ -10,19 +10,22 @@ logger = logging.getLogger(__name__)
 
 class ImagenClient:
     def __init__(self) -> None:
-        self._client = genai.Client(api_key=config.GOOGLE_API_KEY)
+        # Imagen 3 lives on v1beta for the Gemini Developer API.
+        # v1 returns 404 (empty message); :predict is Vertex AI only.
+        # The SDK's generate_images() maps to :generateImages which is correct.
+        self._client = genai.Client(
+            api_key=config.GOOGLE_API_KEY,
+            http_options={"api_version": "v1beta"},
+        )
 
     def generate_character_image(self, prompt: str) -> bytes:
         """Generate an initial character reference image via Imagen 3.
-
-        Args:
-            prompt: Full Imagen prompt built from IMAGEN_PROMPT_TEMPLATE.
 
         Returns:
             Raw JPEG bytes of the generated image.
 
         Raises:
-            RuntimeError: If the API returns no images or an unexpected error.
+            RuntimeError: If the API returns an error or no image.
         """
         try:
             response = self._client.models.generate_images(
@@ -36,10 +39,10 @@ class ImagenClient:
         except Exception as exc:
             raise RuntimeError(f"Imagen generation failed: {exc}") from exc
 
-        images = response.generated_images
+        images = getattr(response, "generated_images", None) or []
         if not images:
             raise RuntimeError(
-                "Imagen returned no images — the prompt may have been blocked."
+                "Imagen returned no images — prompt may have been blocked."
             )
 
         image_bytes = images[0].image.image_bytes

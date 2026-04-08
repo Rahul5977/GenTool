@@ -19,7 +19,7 @@ from ..prompts.system_imager import IMAGEN_PROMPT_TEMPLATE, SYSTEM_IMAGER
 
 logger = logging.getLogger(__name__)
 
-# Separate genai client for the image-generation model (inherits same key)
+# Separate genai client for the image-generation model (uses SDK default API version).
 _image_client = genai.Client(api_key=config.GOOGLE_API_KEY)
 
 
@@ -98,8 +98,8 @@ def regenerate_single_keyframe(
         A new KeyFrame with updated image_b64.
     """
     if frame_index == 0:
-        clips_list = [clip] if clip else []
-        return _generate_reference_frame(brief, clips_list)
+        # _generate_reference_frame reads emotional_state from brief.clips, not from clips arg
+        return _generate_reference_frame(brief, [])
 
     return _generate_transition_frame(
         prev_frame=prev_keyframe,
@@ -125,7 +125,10 @@ def _generate_reference_frame(
     marks_str = (
         ", ".join(char.distinguishing_marks) if char.distinguishing_marks else "none"
     )
-    first_emotional_state = clips[0].emotional_state if clips else "neutral, attentive"
+    # emotional_state lives on ClipBrief (brief.clips), not ClipPrompt
+    first_emotional_state = (
+        brief.clips[0].emotional_state if brief.clips else "neutral, attentive"
+    )
 
     prompt = IMAGEN_PROMPT_TEMPLATE.format(
         age=char.age,
@@ -141,10 +144,26 @@ def _generate_reference_frame(
     # Append the opening emotional state so Imagen sets the right starting expression
     prompt += f"\n\nOpening expression: {first_emotional_state}."
 
-    image_bytes = imagen_client.generate_character_image(prompt)
+    # Try Imagen 3 first; fall back to Gemini 2.0 Flash image generation
+    image_b64: str | None = None
+    try:
+        image_bytes = imagen_client.generate_character_image(prompt)
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        logger.info("Phase 3: frame 0 generated via Imagen 3")
+    except RuntimeError as exc:
+        logger.warning(
+            "Phase 3: Imagen 3 failed (%s) — falling back to Gemini image generation", exc
+        )
+        image_b64 = _call_gemini_image_text_to_image(prompt)
+        if not image_b64:
+            raise RuntimeError(
+                f"Frame 0 generation failed: Imagen error was '{exc}', "
+                "and Gemini image fallback also returned no image."
+            ) from exc
+
     return KeyFrame(
         index=0,
-        image_b64=base64.b64encode(image_bytes).decode("utf-8"),
+        image_b64=image_b64,
         mime_type="image/jpeg",
         description=f"Initial character reference — {first_emotional_state}",
         approved=False,
@@ -206,8 +225,75 @@ def _generate_transition_frame(
     )
 
 
+def _extract_image_b64(response, context: str) -> str | None:
+    """Extract the first image part from a Gemini generate_content response.
+
+    Returns base64-encoded image string, or None if no image part found.
+    """
+    candidates = getattr(response, "candidates", None) or []
+    logger.debug("Gemini %s: %d candidate(s) in response", context, len(candidates))
+
+    for ci, candidate in enumerate(candidates):
+        finish_reason = getattr(candidate, "finish_reason", None)
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) or []
+        logger.debug(
+            "Gemini %s: candidate[%d] finish_reason=%s, %d part(s)",
+            context, ci, finish_reason, len(parts),
+        )
+        for pi, part in enumerate(parts):
+            inline = getattr(part, "inline_data", None)
+            text = getattr(part, "text", None)
+            if text:
+                logger.debug("Gemini %s: candidate[%d].part[%d] text=%r", context, ci, pi, text[:200])
+            if inline is not None:
+                mime = getattr(inline, "mime_type", None)
+                data = getattr(inline, "data", None)
+                logger.debug(
+                    "Gemini %s: candidate[%d].part[%d] inline_data mime=%s data_len=%s",
+                    context, ci, pi, mime, len(data) if data else 0,
+                )
+                if data:
+                    if isinstance(data, bytes):
+                        return base64.b64encode(data).decode("utf-8")
+                    return data  # already a base64 string
+
+    # Log any prompt feedback (safety blocks etc.)
+    feedback = getattr(response, "prompt_feedback", None)
+    if feedback:
+        logger.warning("Gemini %s: prompt_feedback=%s", context, feedback)
+
+    # Dump full response repr so we can diagnose unexpected structures
+    logger.warning("Gemini %s: full response repr: %r", context, response)
+    logger.warning("Gemini %s: response contained no image parts", context)
+    return None
+
+
+def _call_gemini_image_text_to_image(prompt: str) -> str | None:
+    """Generate a character image from a text prompt via Gemini image model.
+
+    Used as a fallback when Imagen 3 is unavailable on the API key.
+    Returns base64-encoded JPEG, or None on failure.
+    """
+    try:
+        response = _image_client.models.generate_content(
+            model=config.GEMINI_IMAGE_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                # Must include TEXT alongside IMAGE — IMAGE alone causes the
+                # model to return only a text caption with no image part.
+                response_modalities=["IMAGE", "TEXT"],
+            ),
+        )
+    except Exception as exc:
+        logger.error("Gemini image text-to-image fallback failed: %s", exc)
+        return None
+
+    return _extract_image_b64(response, "text-to-image fallback")
+
+
 def _call_gemini_image(prev_b64: str, instruction: str) -> str | None:
-    """Send a base64 JPEG + instruction to Gemini 2.0 Flash Image model.
+    """Send a base64 JPEG + instruction to Gemini image model for editing.
 
     Returns the generated image as a base64 string, or None if no image part
     was found in the response.
@@ -229,28 +315,11 @@ def _call_gemini_image(prev_b64: str, instruction: str) -> str | None:
                 )
             ],
             config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                response_mime_type="image/jpeg",
+                response_modalities=["IMAGE", "TEXT"],
             ),
         )
     except Exception as exc:
         logger.error("Gemini Image API call failed: %s", exc)
         return None
 
-    # Extract the first image part from the response
-    candidates = getattr(response, "candidates", None) or []
-    for candidate in candidates:
-        content = getattr(candidate, "content", None)
-        parts = getattr(content, "parts", None) or []
-        for part in parts:
-            inline = getattr(part, "inline_data", None)
-            if inline is not None:
-                data = getattr(inline, "data", None)
-                if data:
-                    # data may already be bytes or a base64 string
-                    if isinstance(data, bytes):
-                        return base64.b64encode(data).decode("utf-8")
-                    return data  # already a base64 string
-
-    logger.warning("Gemini Image response contained no image parts")
-    return None
+    return _extract_image_b64(response, "image-edit")

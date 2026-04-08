@@ -32,7 +32,7 @@ from .pipeline.phase3_imager import regenerate_single_keyframe
 from .pipeline.phase4_generator import generate_single_clip
 from .models import KeyFrame
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Flash Tool API", version="2.0.0")
@@ -143,12 +143,23 @@ async def get_job_status(job_id: str):
 
 @app.get("/api/v2/jobs/{job_id}/stream")
 async def stream_job(job_id: str, request: Request):
-    """SSE stream of pipeline progress events for a job."""
-    job = _require_job(job_id)
+    """SSE stream of pipeline progress events for a job.
+
+    Supports Last-Event-ID for reconnect: the client resumes from where it
+    left off rather than replaying the full event history from the start.
+    """
+    _require_job(job_id)
     queue = _job_event_queues.setdefault(job_id, [])
 
+    # Honor Last-Event-ID on reconnect so we don't replay history
+    last_event_id_header = request.headers.get("last-event-id", "")
+    try:
+        start_index = int(last_event_id_header) + 1
+    except (ValueError, TypeError):
+        start_index = 0
+
     async def event_generator():
-        sent_index = 0
+        sent_index = start_index
         last_heartbeat = time.monotonic()
 
         while True:
@@ -163,18 +174,19 @@ async def stream_job(job_id: str, request: Request):
                 yield {
                     "event": entry["type"],
                     "data": json.dumps(entry["data"]),
+                    "id": str(sent_index),  # client stores this as Last-Event-ID
                 }
                 sent_index += 1
 
             # Check terminal states — flush remaining events first
             current = job_store.get(job_id)
             if current and current.status in (JobStatus.DONE, JobStatus.FAILED):
-                # One final drain
                 while sent_index < len(queue):
                     entry = queue[sent_index]
                     yield {
                         "event": entry["type"],
                         "data": json.dumps(entry["data"]),
+                        "id": str(sent_index),
                     }
                     sent_index += 1
                 break
