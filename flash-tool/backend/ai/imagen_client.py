@@ -15,7 +15,6 @@ class ImagenClient:
         # The SDK's generate_images() maps to :generateImages which is correct.
         self._client = genai.Client(
             api_key=config.GOOGLE_API_KEY,
-            http_options={"api_version": "v1beta"},
         )
 
     def generate_character_image(self, prompt: str) -> bytes:

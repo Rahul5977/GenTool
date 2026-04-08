@@ -15,7 +15,7 @@ _FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 class GeminiClient:
     def __init__(self) -> None:
-        self._client = genai.Client(api_key=config.GOOGLE_API_KEY)
+        self._client = genai.Client(api_key=config.GOOGLE_API_KEY,)
 
     # ------------------------------------------------------------------
     # Public API
