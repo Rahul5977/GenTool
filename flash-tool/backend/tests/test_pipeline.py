@@ -42,24 +42,24 @@ _stub_google()
 MOCK_BRIEF_6: dict = {
     "clips": [
         {"clip_number": 1, "duration_seconds": 8,
-         "dialogue": "Teen attempt ho gaye, prelims clear nahi hua, gharwale bol rahe hain chhod de ya shaadi kar le",
-         "word_count": 17, "emotional_state": "confided vulnerability",
+         "dialogue": "Teen attempt ho gaye, prelims clear nahi hua, gharwale bol rahe hain chhod de ya shaadi kar le, aur main kuch nahi samajh pa rahi",
+         "word_count": 24, "emotional_state": "confided vulnerability",
          "end_emotion": "soft downward gaze, lips parting, quiet resignation settling"},
         {"clip_number": 2, "duration_seconds": 8,
-         "dialogue": "Ek raat Rishika didi ki video dekhi, unhone ek sawaal poocha jo andar ghus gaya",
-         "word_count": 14, "emotional_state": "cautious discovery",
+         "dialogue": "Ek raat Rishika didi ki video dekhi, unhone ek sawaal poocha jo seedha andar ghus gaya, aur main wahan ruk gayi thi",
+         "word_count": 22, "emotional_state": "cautious discovery",
          "end_emotion": "eyebrow slightly raised, eyes wide, head tilting left with curiosity"},
         {"clip_number": 3, "duration_seconds": 7,
-         "dialogue": "Main baith gayi apne aap ke saath, pehli baar roya bhi aur samjhi bhi",
-         "word_count": 14, "emotional_state": "vulnerable breakthrough",
+         "dialogue": "Main baith gayi apne aap ke saath, pehli baar roya bhi aur samjhi bhi, kuch toot ke theek hua",
+         "word_count": 18, "emotional_state": "vulnerable breakthrough",
          "end_emotion": "eyes glistening, soft exhale, small genuine smile arriving"},
         {"clip_number": 4, "duration_seconds": 7,
-         "dialogue": "Rishika didi ne kaha pehle neend theek karo, ek hafte mein fark dikh gaya",
-         "word_count": 14, "emotional_state": "quiet confidence",
+         "dialogue": "Rishika didi ne kaha pehle neend theek karo, ek hi hafte mein fark dikh gaya, sach mein",
+         "word_count": 17, "emotional_state": "quiet confidence",
          "end_emotion": "calm nod, relaxed jaw, warm eyes half-closed in contentment"},
         {"clip_number": 5, "duration_seconds": 8,
-         "dialogue": "Abhi bhi uncertain hoon lekin andar se ek zyada sthirta aa gayi hai, yeh meri life hai",
-         "word_count": 15, "emotional_state": "grounded resolve",
+         "dialogue": "Abhi bhi uncertain hoon lekin andar se ek zyada sthirta aa gayi hai, yeh meri life hai, meri apni",
+         "word_count": 22, "emotional_state": "grounded resolve",
          "end_emotion": "steady gaze, chin level, small knowing smile, shoulders settled"},
         {"clip_number": 6, "duration_seconds": 5,
          "dialogue": "SuperLiving pe Rishika didi se baat karo, pehla session free hai",
@@ -129,7 +129,7 @@ MOCK_VERIFIER_REPORT: dict = {
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
-WORD_RANGES = {8: (15, 19), 7: (13, 17), 5: (10, 13)}
+WORD_RANGES = {8: (22, 24), 7: (17, 20), 5: (11, 14)}
 DASH_RE = re.compile(r"[—\-]")
 
 GREEN  = "\033[92m"
@@ -305,16 +305,16 @@ def test_word_count_rules():
     from backend.pipeline.phase1_analyser import _count_words, _trim_dialogue, _expand_dialogue
 
     cases = [
-        # 8s range = 15–19 words
-        ("Teen attempt ho gaye prelims clear nahi hua gharwale bol rahe hain chhod de ya shaadi kar le",
-         8, True),   # 17 words — in range
-        ("Yeh bahut zyada lambi line hai jo definitely exceed karengi ek baar mein limit aur bhi aur bhi kyunki main test kar rahi hoon",
-         8, False),  # 24 words — over 19
+        # 8s range = 22–24 words
+        ("Teen attempt ho gaye, prelims clear nahi hua, gharwale bol rahe hain chhod de ya shaadi kar le aur main kya karun",
+         8, True),   # 22 words — in range
+        ("Yeh bahut zyada lambi line hai jo definitely exceed karengi ek baar mein limit aur bhi aur bhi kyunki main test kar rahi hoon aur aur",
+         8, False),  # 26 words — over 24
         ("Chhota",
-         8, False),  # 1 word — under 15
-        # 7s range = 13–17 words
-        ("Rishika didi ki advice se mujhe bahut fark pada, dil mein ek chain aayi",
-         7, True),   # 14 words — in range
+         8, False),  # 1 word — under 22
+        # 7s range = 17–20 words
+        ("Rishika didi ki advice se mujhe bahut fark pada, dil mein ek chain aayi aur main samjhi",
+         7, True),   # 17 words — in range
     ]
 
     for dialogue, dur, should_pass in cases:

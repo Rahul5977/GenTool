@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Allowed word-count ranges keyed by clip duration
 _WORD_RANGES: dict[int, tuple[int, int]] = {
-    8: (15, 19),
-    7: (13, 17),
-    5: (10, 13),
+    8: (22, 24),
+    7: (17, 20),
+    5: (11, 14),
 }
 
 # Natural Hindi filler phrases for under-count expansion (each adds ~3-5 words)

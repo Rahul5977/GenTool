@@ -231,24 +231,75 @@ def _is_transient(exc: Exception) -> bool:
 def _rephrase_blocked_prompt(prompt: str, block_reason: str) -> str:
     """Use Gemini to rephrase a RAI-blocked Veo prompt.
 
-    Only the ACTION and DIALOGUE blocks are rephrased; structural sections
-    (FACE LOCK, CAMERA, AUDIO, etc.) are preserved verbatim.
+    Applies aggressive content-safe rephrasing using emotional equivalents
+    while preserving structural sections (FACE LOCK, CAMERA, AUDIO, etc.) verbatim.
     """
-    system = (
-        "A Veo video generation prompt was blocked by a content safety filter. "
-        "Rephrase the ACTION and DIALOGUE sections to remove anything that could "
-        "trigger safety filters while preserving the emotional intent. "
-        "Return the complete prompt with all other sections unchanged. "
-        f"Block reason: {block_reason}"
+    # Derive attempt number from how many times this prompt has been rephrased
+    # (count occurrences of the rephrase marker, default to 1)
+    attempt = prompt.count("__REPHRASE_ATTEMPT__") + 1
+    marker = "__REPHRASE_ATTEMPT__" * attempt
+
+    system = """You are a Veo content policy expert. Sanitize video generation prompts so they NEVER get blocked by Google Veo.
+
+Veo SILENTLY BLOCKS prompts containing ANY of these — even indirect references:
+
+BLOCKED TRIGGERS TO ELIMINATE:
+- Skin conditions: स्किन टाइप, त्वचा का प्रकार, साफ/स्वस्थ त्वचा, मुंहासे, दाग, चमकदार त्वचा
+- Improvement claims: बेहतर होगा, सुधार होगा, सब ठीक होगा, will get better
+- Treatments/recommendations: sunscreen, सनस्क्रीन, SPF, sunblock, facial, cleanup, फेशियल, क्लीनअप
+- Home remedies (beauty): haldi, besan, dahi, ubtan, हल्दी, बेसन, दही, उबटन, face pack
+- Glow (beauty): glow, parlour glow, permanent glow, ग्लो, पार्लर ग्लो, chemical glow
+- Health: थकान, दर्द, कमज़ोरी, बीमारी, दवाई, वज़न, BP, sugar, diabetes
+- Before/after: transformation language, physical improvement comparisons
+
+⚠️ DO NOT REMOVE from dialogue (keep these spoken words intact):
+- Product names in COMPLAINT/PAST-TENSE context: serum, retinol, niacinamide,
+  AHA, BHA, cream, moisturizer, face wash, फेस वॉश, क्रीम, सीरम
+- When character says 'serum, retinol sab lagati thi' she is complaining
+  about products she STOPPED using. This is the problem statement, not a recommendation.
+- Removing these words breaks lip-sync and makes dialogue nonsensical.
+
+REPLACEMENTS:
+- स्किन टाइप समझ → अपनी दिनचर्या समझ
+- बेहतर होगा → आसान होगा / अच्छा लगेगा
+- त्वचा साफ/स्वस्थ → चेहरे पर ताज़गी है
+- साफ त्वचा → आत्मविश्वासी चेहरा
+- sunscreen roz → apna routine follow karo / din ki shuruaat ache se karo
+- हल्दी बेसन दही → घर पर अपनी दिनचर्या / apna ek chhota sa kaam
+- glow/ग्लो → ताज़गी/freshness/confidence/अच्छा लगना
+- parlour glow chemical → parlour ka asar temporary
+- थकान→3 बजे वाली वो थकान (specific), दर्द→वो बेचैनी, कमज़ोरी→नई ऊर्जा, वज़न→आत्मविश्वास
+
+THE TEST: After replacement, would a Tier 2–3 viewer still say
+"haan yaar yahi toh hota hai mujhe"? If YES → replacement is good.
+If NO → find a better emotional equivalent.
+
+MUST KEEP EXACTLY AS-IS:
+- Outfit + full physical appearance description
+- ⚠️ FACE LOCK statement and ⚠️ चेहरा पूरी तरह स्थिर lines
+- CONTINUING FROM: block
+- LAST FRAME: block
+- Camera / lighting / location lines
+- No-letterbox / no-subtitle lines
+- NEVER remove acronym hyphens: P-C-O-S, I-V-F, B-P, P-C-O-D
+
+Output the rewritten prompt ONLY — no preamble, no explanation."""
+
+    user_message = (
+        f"This Veo prompt was BLOCKED by safety policy. "
+        f"Aggressive rephrase attempt {attempt}. Block reason: {block_reason}\n\n"
+        f"ORIGINAL BLOCKED PROMPT:\n{prompt}"
     )
+
     try:
         rephrased = gemini_client.generate_text(
             system_prompt=system,
-            user_prompt=prompt,
+            user_prompt=user_message,
             temperature=0.3,
         )
-        logger.info("Phase 4: prompt rephrased after RAI block")
-        return rephrased
+        # Append marker so next attempt increments the count
+        logger.info("Phase 4: prompt rephrased after RAI block (attempt %d)", attempt)
+        return rephrased + marker
     except Exception as exc:
         logger.warning("Phase 4: prompt rephrase failed (%s) — using original", exc)
         return prompt
