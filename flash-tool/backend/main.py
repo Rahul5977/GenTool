@@ -15,16 +15,19 @@ from . import config
 from .job_store import job_store
 from .models import (
     ApproveImagesRequest,
+    ApprovePromptsRequest,
     CreateJobRequest,
     JobStatus,
     RegenClipRequest,
     RegenImageRequest,
+    UpdateClipPromptRequest,
     VideoJob,
 )
 from .pipeline.orchestrator import (
     _approval_data,
     _approval_events,
     _job_event_queues,
+    _prompt_approval_events,
     emit_event,
     run_pipeline,
 )
@@ -203,6 +206,78 @@ async def stream_job(job_id: str, request: Request):
 
 
 # ---------------------------------------------------------------------------
+# Prompt review endpoints (Phase 2 → Phase 3 gate)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v2/jobs/{job_id}/clips")
+async def get_clips(job_id: str):
+    """Return the current list of clip prompts for a job."""
+    job = _require_job(job_id)
+    return {
+        "clips": [
+            {
+                "clip_number": c.clip_number,
+                "duration_seconds": c.duration_seconds,
+                "scene_summary": c.scene_summary,
+                "prompt": c.prompt,
+                "dialogue": c.dialogue,
+                "word_count": c.word_count,
+                "end_emotion": c.end_emotion,
+                "verified": c.verified,
+                "verification_issues": c.verification_issues,
+            }
+            for c in job.clips
+        ]
+    }
+
+
+@app.put("/api/v2/jobs/{job_id}/clips/{clip_index}")
+async def update_clip_prompt(job_id: str, clip_index: int, body: UpdateClipPromptRequest):
+    """Update a single clip's Veo prompt during human review (before image gen starts)."""
+    job = _require_job(job_id)
+    if job.status != JobStatus.AWAITING_PROMPT_REVIEW:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can only edit prompts while job is awaiting prompt review (current: {job.status})",
+        )
+    clips = list(job.clips)
+    if clip_index < 0 or clip_index >= len(clips):
+        raise HTTPException(
+            status_code=400,
+            detail=f"clip_index {clip_index} out of range (0–{len(clips) - 1})",
+        )
+    # Update the prompt in-place (keep all other fields)
+    clip = clips[clip_index]
+    updated_clip = clip.model_copy(update={"prompt": body.prompt})
+    clips[clip_index] = updated_clip
+    job_store.update(job_id, clips=clips)
+
+    emit_event(job_id, "clip_prompt_updated", {"clip_index": clip_index, "clip_number": clip.clip_number})
+    logger.info("Job %s: clip %d prompt updated by user", job_id, clip_index)
+    return {"message": "prompt updated", "clip_index": clip_index}
+
+
+@app.post("/api/v2/jobs/{job_id}/approve-prompts")
+async def approve_prompts(job_id: str, body: ApprovePromptsRequest):  # noqa: ARG001
+    """Unblock Phase 3 image generation after human prompt review."""
+    job = _require_job(job_id)
+    if job.status != JobStatus.AWAITING_PROMPT_REVIEW:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Job is not awaiting prompt review (current status: {job.status})",
+        )
+
+    event = _prompt_approval_events.get(job_id)
+    if event:
+        event.set()
+    else:
+        logger.warning("Job %s: prompt approval event not found — phase may have already advanced", job_id)
+
+    logger.info("Job %s: prompts approved — unblocking Phase 3", job_id)
+    return {"message": "prompts approved, starting image generation"}
+
+
+# ---------------------------------------------------------------------------
 # Approve keyframes
 # ---------------------------------------------------------------------------
 
@@ -269,6 +344,7 @@ async def regen_image(job_id: str, body: RegenImageRequest):
             target_emotion=target_emotion,
             brief=brief,
             clip=clip,
+            custom_prompt=body.custom_prompt,
         ),
     )
 
@@ -313,13 +389,16 @@ async def regen_clip(job_id: str, body: RegenClipRequest):
     out_dir = os.path.join(config.TMP_DIR, job_id)
     os.makedirs(out_dir, exist_ok=True)
 
+    # Allow user to supply a modified prompt for this regen attempt
+    effective_prompt = body.updated_prompt if body.updated_prompt else clip.prompt
+
     new_path = await asyncio.get_event_loop().run_in_executor(
         None,
         lambda: generate_single_clip(
             clip_index=clip_index,
             clip_number=clip.clip_number,
             total=len(clips),
-            prompt=clip.prompt,
+            prompt=effective_prompt,
             first_frame=keyframes[clip_index],
             last_frame=keyframes[clip_index + 1],
             veo_model=config.VEO_MODEL,
@@ -327,6 +406,12 @@ async def regen_clip(job_id: str, body: RegenClipRequest):
             job_id=job_id,
         ),
     )
+
+    # Persist the updated prompt back to the clip store if user modified it
+    if body.updated_prompt:
+        updated_clips = list(job.clips)
+        updated_clips[clip_index] = clip.model_copy(update={"prompt": body.updated_prompt})
+        job_store.update(job_id, clips=updated_clips)
 
     updated_paths = list(job.clip_paths)
     # Extend the list if it's shorter than expected

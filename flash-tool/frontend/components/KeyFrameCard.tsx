@@ -19,7 +19,9 @@ export default function KeyFrameCard({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [imgKey, setImgKey] = useState(0); // increment to force img reload
+  const [imgKey, setImgKey] = useState(0);
+  const [showPromptInput, setShowPromptInput] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const imgUrl = api.keyframeUrl(jobId, index);
 
@@ -27,8 +29,13 @@ export default function KeyFrameCard({
     setLoading(true);
     setError("");
     try {
-      await api.regenImage(jobId, { keyframe_index: index });
+      await api.regenImage(jobId, {
+        keyframe_index: index,
+        custom_prompt: customPrompt.trim() || undefined,
+      });
       setImgKey((k) => k + 1);
+      setCustomPrompt("");
+      setShowPromptInput(false);
       onRegenerated(index);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Regen failed");
@@ -39,7 +46,7 @@ export default function KeyFrameCard({
 
   return (
     <div
-      className={`relative flex flex-col rounded-xl overflow-hidden border transition-all duration-200 fade-in ${
+      className={`relative flex flex-col rounded-xl overflow-hidden border transition-all duration-200 ${
         approved
           ? "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.08)]"
           : "border-[#2a2a2a] hover:border-[#3a3a3a]"
@@ -47,7 +54,7 @@ export default function KeyFrameCard({
       style={{ background: "var(--bg-card)" }}
     >
       {/* Image */}
-      <div className="relative aspect-[9/16] w-full bg-[#111] overflow-hidden">
+      <div className="relative aspect-9/16 w-full bg-[#111] overflow-hidden">
         {loading ? (
           <div className="absolute inset-0 shimmer" />
         ) : (
@@ -81,9 +88,11 @@ export default function KeyFrameCard({
         <p className="text-xs text-[#9ca3af] mono leading-relaxed line-clamp-2" title={description}>
           {description || "—"}
         </p>
+
         {error && <p className="text-xs text-red-400">{error}</p>}
+
+        {/* Approve checkbox + regen button */}
         <div className="flex items-center gap-2 mt-1">
-          {/* Approve checkbox */}
           <label className="flex items-center gap-2 cursor-pointer flex-1">
             <input
               type="checkbox"
@@ -93,7 +102,14 @@ export default function KeyFrameCard({
             />
             <span className="text-xs text-[#9ca3af]">Approve</span>
           </label>
-          {/* Regen button */}
+          <button
+            onClick={() => setShowPromptInput((s) => !s)}
+            disabled={loading}
+            className="px-2 py-1.5 rounded text-xs text-[#6b7280] border border-[#2a2a2a] hover:border-[#3a3a3a] hover:text-[#9ca3af] disabled:opacity-40 transition-all"
+            title="Add custom instructions for regen"
+          >
+            +
+          </button>
           <button
             onClick={handleRegen}
             disabled={loading}
@@ -101,14 +117,27 @@ export default function KeyFrameCard({
           >
             {loading ? (
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full border border-current border-t-transparent spin" />
-                Regenerating…
+                <span className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />
+                Regen…
               </span>
             ) : (
               "↺ Regen"
             )}
           </button>
         </div>
+
+        {/* Custom prompt input (collapsible) */}
+        {showPromptInput && (
+          <div className="mt-1">
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="Optional: describe what to fix (e.g. 'make the smile warmer', 'fix eye shadow')"
+              rows={2}
+              className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-2 text-xs text-[#9ca3af] mono leading-relaxed resize-none focus:outline-none focus:border-violet-500/40 transition-colors placeholder:text-[#3a3a3a]"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

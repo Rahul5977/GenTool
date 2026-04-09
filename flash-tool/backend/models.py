@@ -6,23 +6,25 @@ import uuid
 
 
 class JobStatus(str, Enum):
-    PENDING    = "pending"
-    ANALYSING  = "analysing"
-    PROMPTING  = "prompting"
-    IMAGING    = "imaging"
-    AWAITING   = "awaiting_approval"
-    GENERATING = "generating"
-    STITCHING  = "stitching"
-    DONE       = "done"
-    FAILED     = "failed"
+    PENDING               = "pending"
+    ANALYSING             = "analysing"
+    PROMPTING             = "prompting"
+    AWAITING_PROMPT_REVIEW = "awaiting_prompt_review"
+    IMAGING               = "imaging"
+    AWAITING              = "awaiting_approval"
+    GENERATING            = "generating"
+    STITCHING             = "stitching"
+    DONE                  = "done"
+    FAILED                = "failed"
 
 
 class PipelinePhase(str, Enum):
-    PHASE_1 = "script_analysis"
-    PHASE_2 = "prompt_generation"
-    PHASE_3 = "image_generation"
-    PHASE_4 = "video_generation"
-    PHASE_5 = "stitch"
+    PHASE_1       = "script_analysis"
+    PHASE_2       = "prompt_generation"
+    PHASE_2_REVIEW = "prompt_review"
+    PHASE_3       = "image_generation"
+    PHASE_4       = "video_generation"
+    PHASE_5       = "stitch"
 
 
 class CharacterSpec(BaseModel):
@@ -107,10 +109,21 @@ class ApproveImagesRequest(BaseModel):
     approved_indices: list[int]  # which keyframes are approved
 
 
+class ApprovePromptsRequest(BaseModel):
+    """Signal to unblock Phase 3 image generation after human prompt review."""
+    pass  # no payload needed — just the POST triggers the unblock
+
+
+class UpdateClipPromptRequest(BaseModel):
+    prompt: str
+
+
 class RegenImageRequest(BaseModel):
     keyframe_index: int
     new_emotion: Optional[str] = None
+    custom_prompt: Optional[str] = None  # extra user instructions for regen
 
 
 class RegenClipRequest(BaseModel):
     clip_index: int  # 0-based
+    updated_prompt: Optional[str] = None  # if set, use this prompt instead of stored one

@@ -14,85 +14,112 @@ export interface TimelinePhase {
 interface Props {
   phases: TimelinePhase[];
   jobId: string;
+  showReviewPromptsButton?: boolean;
   showReviewButton?: boolean;
   showDoneButton?: boolean;
   videoUrl?: string;
 }
 
-function PhaseIcon({ state }: { state: PhaseState }) {
+function PhaseNode({ state, index }: { state: PhaseState; index: number }) {
   if (state === "done")
     return (
-      <span className="w-8 h-8 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 text-sm font-bold">
+      <span className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center text-green-400 text-xs font-bold shrink-0">
         ✓
       </span>
     );
   if (state === "active")
     return (
-      <span className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/40 flex items-center justify-center glow-pulse">
-        <span className="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent spin" />
+      <span className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-400/50 flex items-center justify-center shrink-0">
+        <span className="w-2.5 h-2.5 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
       </span>
     );
   return (
-    <span className="w-8 h-8 rounded-full border border-[#2a2a2a] flex items-center justify-center">
-      <span className="w-2 h-2 rounded-full bg-[#3a3a3a]" />
+    <span className="w-7 h-7 rounded-full border border-[#2a2a2a] flex items-center justify-center text-[#3a3a3a] text-xs shrink-0">
+      {index + 1}
     </span>
   );
 }
 
-export default function ProgressTimeline({ phases, jobId, showReviewButton, showDoneButton, videoUrl }: Props) {
+export default function ProgressTimeline({
+  phases,
+  jobId,
+  showReviewPromptsButton,
+  showReviewButton,
+  showDoneButton,
+  videoUrl,
+}: Props) {
   const router = useRouter();
+
   return (
-    <div className="flex flex-col gap-0">
-      {phases.map((phase, i) => (
-        <div key={phase.id} className="flex gap-4">
-          {/* Icon + connector */}
-          <div className="flex flex-col items-center">
-            <PhaseIcon state={phase.state} />
+    <div className="w-full">
+      {/* Horizontal phase track */}
+      <div className="flex items-start gap-0 overflow-x-auto pb-1">
+        {phases.map((phase, i) => (
+          <div key={phase.id} className="flex items-start flex-1 min-w-0">
+            {/* Phase cell */}
+            <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+              <PhaseNode state={phase.state} index={i} />
+              <div className="text-center px-1">
+                <p
+                  className={`text-[10px] font-medium leading-tight transition-colors duration-300 ${
+                    phase.state === "done"
+                      ? "text-green-400"
+                      : phase.state === "active"
+                      ? "text-white"
+                      : "text-[#4b5563]"
+                  }`}
+                >
+                  {phase.label}
+                </p>
+                {phase.sublabel && (
+                  <p className="text-[9px] text-[#6b7280] mono mt-0.5">{phase.sublabel}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Connector line (except after last) */}
             {i < phases.length - 1 && (
-              <div
-                className={`w-px flex-1 mt-1 mb-1 min-h-[20px] transition-colors duration-700 ${
-                  phase.state === "done" ? "bg-green-500/30" : "bg-[#2a2a2a]"
-                }`}
-              />
+              <div className="flex items-center self-start mt-3.5 shrink-0">
+                <div
+                  className={`h-px w-6 transition-colors duration-700 ${
+                    phase.state === "done" ? "bg-green-500/40" : "bg-[#2a2a2a]"
+                  }`}
+                />
+              </div>
             )}
           </div>
-          {/* Label */}
-          <div className="pb-5 pt-1 flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span
-                className={`text-sm font-medium transition-colors duration-300 ${
-                  phase.state === "done"
-                    ? "text-green-400"
-                    : phase.state === "active"
-                    ? "text-white"
-                    : "text-[#4b5563]"
-                }`}
-              >
-                {phase.label}
-              </span>
-              {phase.sublabel && (
-                <span className="text-xs text-[#6b7280] mono">{phase.sublabel}</span>
-              )}
-              {phase.id === "awaiting" && showReviewButton && (
-                <button
-                  onClick={() => router.push(`/jobs/${jobId}/review`)}
-                  className="ml-auto px-3 py-1 rounded text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-colors"
-                >
-                  Review Images →
-                </button>
-              )}
-              {phase.id === "done" && showDoneButton && videoUrl && (
-                <button
-                  onClick={() => router.push(`/jobs/${jobId}/result`)}
-                  className="ml-auto px-3 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30 transition-colors"
-                >
-                  Watch Ad →
-                </button>
-              )}
-            </div>
-          </div>
+        ))}
+      </div>
+
+      {/* Action buttons row */}
+      {(showReviewPromptsButton || showReviewButton || showDoneButton) && (
+        <div className="flex justify-end mt-3 pt-3 border-t border-[#1e1e1e] gap-2">
+          {showReviewPromptsButton && (
+            <button
+              onClick={() => router.push(`/jobs/${jobId}/review-prompts`)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-500/20 text-violet-300 border border-violet-500/30 hover:bg-violet-500/30 transition-colors"
+            >
+              Edit Prompts →
+            </button>
+          )}
+          {showReviewButton && (
+            <button
+              onClick={() => router.push(`/jobs/${jobId}/review`)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-colors"
+            >
+              Review Images →
+            </button>
+          )}
+          {showDoneButton && videoUrl && (
+            <button
+              onClick={() => router.push(`/jobs/${jobId}/result`)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30 transition-colors"
+            >
+              Watch Ad →
+            </button>
+          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }

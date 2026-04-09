@@ -148,8 +148,10 @@ def generate_single_clip(
 
     current_prompt = prompt
     last_exc: Exception = RuntimeError("No attempts made")
+    attempts_made = 0
 
     for attempt in range(1, MAX_RETRIES + 1):
+        attempts_made = attempt
         logger.info(
             "Phase 4: clip %d/%d — attempt %d/%d", clip_number, total, attempt, MAX_RETRIES
         )
@@ -179,11 +181,13 @@ def generate_single_clip(
         except ContentPolicyError as exc:
             last_exc = exc
             logger.warning(
-                "Phase 4: clip %d — RAI block on attempt %d: %s",
+                "Phase 4: clip %d — RAI/content block on attempt %d: %s",
                 clip_number, attempt, exc,
             )
             if attempt < MAX_RETRIES:
+                logger.info("Phase 4: clip %d — rephrasing prompt after content block", clip_number)
                 current_prompt = _rephrase_blocked_prompt(current_prompt, str(exc))
+            # No sleep needed for content policy — rephrase is immediate
 
         except Exception as exc:
             last_exc = exc
@@ -195,14 +199,18 @@ def generate_single_clip(
             if is_transient and attempt < MAX_RETRIES:
                 jitter = random.uniform(0, 15)
                 sleep_sec = _TRANSIENT_SLEEP_BASE * attempt + jitter
-                logger.info("Phase 4: sleeping %.0fs before retry (attempt %d/%d)", sleep_sec, attempt, MAX_RETRIES)
+                logger.info(
+                    "Phase 4: clip %d sleeping %.0fs before retry (attempt %d/%d)",
+                    clip_number, sleep_sec, attempt, MAX_RETRIES,
+                )
                 time.sleep(sleep_sec)
             elif not is_transient:
-                # Non-transient errors (e.g. bad request) won't improve with retries
+                # Non-transient errors won't improve with retries
+                logger.warning("Phase 4: clip %d — non-transient error, stopping retries", clip_number)
                 break
 
     raise RuntimeError(
-        f"clip_{clip_number:02d} failed after {MAX_RETRIES} attempts. "
+        f"clip_{clip_number:02d} failed after {attempts_made} attempt(s). "
         f"Last error: {last_exc}"
     ) from last_exc
 

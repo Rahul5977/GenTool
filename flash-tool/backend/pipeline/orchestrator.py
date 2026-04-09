@@ -37,7 +37,11 @@ logger = logging.getLogger(__name__)
 # The SSE endpoint in main.py polls this list.
 _job_event_queues: dict[str, list[dict]] = {}
 
-# ── Approval signals ─────────────────────────────────────────────────────────
+# ── Prompt approval signals (Phase 2 → Phase 3 gate) ─────────────────────────
+# Human reviews/edits clip prompts before image generation starts.
+_prompt_approval_events: dict[str, threading.Event] = {}
+
+# ── Image approval signals (Phase 3 → Phase 4 gate) ──────────────────────────
 # Orchestrator blocks on _approval_events[job_id].wait().
 # The /approve endpoint stores the request body then sets the event.
 _approval_events: dict[str, threading.Event] = {}
@@ -65,14 +69,19 @@ def run_pipeline(job_id: str, request: CreateJobRequest) -> None:
     Designed to run inside a daemon threading.Thread.  Updates job_store and
     emits SSE events at every milestone.  Any unhandled exception transitions
     the job to FAILED.
+
+    Pipeline flow:
+      Phase 1 → Phase 2 → [HUMAN PROMPT REVIEW] → Phase 3 → [HUMAN IMAGE REVIEW] → Phase 4 → Phase 5
     """
-    # Ensure SSE queue and approval event exist before anything can race
+    # Ensure SSE queue and both approval events exist before anything can race
     _job_event_queues.setdefault(job_id, [])
+    _prompt_approval_events[job_id] = threading.Event()
     _approval_events[job_id] = threading.Event()
 
     try:
         _phase1(job_id, request)
         _phase2(job_id)
+        _wait_for_prompt_approval(job_id)   # ← NEW: human edits/approves clip prompts
         _phase3(job_id)
         _wait_for_approval(job_id)
         _phase4(job_id, request)
@@ -85,6 +94,7 @@ def run_pipeline(job_id: str, request: CreateJobRequest) -> None:
 
     finally:
         # Clean up approval state to free memory
+        _prompt_approval_events.pop(job_id, None)
         _approval_events.pop(job_id, None)
         _approval_data.pop(job_id, None)
 
@@ -155,6 +165,10 @@ def _phase2(job_id: str) -> None:
     })
     logger.info("Job %s: Phase 2 complete (%d clips)", job_id, len(clips))
 
+    # Transition to prompt review state — human edits prompts before images are generated
+    job_store.set_status(job_id, JobStatus.AWAITING_PROMPT_REVIEW, phase=PipelinePhase.PHASE_2_REVIEW, progress=30)
+    emit_event(job_id, "awaiting_prompt_review", {"num_clips": len(clips)})
+
 
 def _phase3(job_id: str) -> None:
     job = job_store.get(job_id)
@@ -185,6 +199,19 @@ def _phase3(job_id: str) -> None:
     num_images = len(accumulated)
     emit_event(job_id, "awaiting_approval", {"num_images": num_images})
     logger.info("Job %s: Phase 3 complete — awaiting approval for %d images", job_id, num_images)
+
+
+def _wait_for_prompt_approval(job_id: str) -> None:
+    """Block the pipeline thread until the /approve-prompts endpoint fires the event.
+
+    During this pause, the operator can call PUT /jobs/{job_id}/clips/{clip_index}
+    to update individual clip prompts before image generation begins.
+    """
+    logger.info("Job %s: waiting for prompt review/approval…", job_id)
+    event = _prompt_approval_events.get(job_id)
+    if event:
+        event.wait()  # indefinite — UI drives this
+    logger.info("Job %s: prompt approval received — proceeding to Phase 3", job_id)
 
 
 def _wait_for_approval(job_id: str) -> None:

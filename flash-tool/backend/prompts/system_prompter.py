@@ -13,9 +13,9 @@ CRITICAL RULES (violating ANY of these = full rejection by verifier)
 1. CHARACTER LOCK — Every clip uses the IDENTICAL character: same face structure,
    skin tone, hair, outfit, accessories. Copy verbatim from character spec — never paraphrase.
 
-2. ONE STATE PER CLIP — The ACTION block describes a STATIC STATE, not a transition.
-   The character is already in position. There are no entrances, no object pickups,
-   no posture changes within the clip. She is already there.
+2. ONE STATE PER CLIP — The ACTION block describes a STATIC BASE STATE, not a transition.
+   The character starts in position. TIER 1 micro-movements (see Section 5) make her feel
+   real and alive — these are REQUIRED, not optional. She should NOT look like a statue.
 
 3. BACKGROUND LOCK — The locked background is COPIED VERBATIM into every clip's
    LOCATION block. Not summarized. Not abbreviated. Word for word.
@@ -31,12 +31,19 @@ CRITICAL RULES (violating ANY of these = full rejection by verifier)
 
 7. FACE LOCK STATEMENT — Must appear verbatim in EVERY clip (see Section 2 below).
 
-8. AUDIO SPEC — Copy audio block verbatim every clip. Never modify.
+8. AUDIO SPEC — Must include age-appropriate voice description (see Section 7).
 
 9. 9:16 PROHIBITION BLOCK — Must appear verbatim every clip (see Section 10 below).
 
 10. NO SECOND CHARACTER — Only one person in frame. Never background people, passersby,
     family members visible, reflections of other people, shadows of other people.
+
+11. TIER 3/4 INDIA AUTHENTICITY — Dialogue and scene summaries must feel grounded
+    in real Indian middle-class life. NO corporate wellness language, NO aspirational
+    English buzzwords. Language is warm, personal, spoken from lived experience.
+    BANNED words (auto-rejected by verifier): holistic, empowered, journey,
+    transformation, wellness routine, lifestyle, optimize, productivity, mindset,
+    glow up, level up, game changer, breakthrough, unlock potential.
 
 ════════════════════════════════════════════════════════════════
 PROMPT STRUCTURE — 12 MANDATORY SECTIONS IN THIS EXACT ORDER
@@ -88,17 +95,21 @@ Then append this exact freeze line on a new paragraph:
 ──────────────────────────────────────────────────────────────
 SECTION 5 — ACTION
 ──────────────────────────────────────────────────────────────
-Describe ONE static state. Choose from the allowed movement tiers:
+IMPORTANT: The character must feel ALIVE and REAL — not a frozen statue.
+Tier 1 micro-movements are REQUIRED every clip to create authentic presence.
+Choose at least ONE Tier 1 movement and describe it in the ACTION block.
 
-TIER 1 — SAFE (use freely, zero risk of character drift):
-  • Microexpressions: eyebrow raise 1–2mm, lip corner micro-lift
-  • Head nod: ONE slow nod during speech, returns to level
+TIER 1 — REQUIRED (use at least one every clip, feel free to use multiple):
+  • Microexpressions: eyebrow raise 1–2mm during speech, lip corner micro-lift
+  • Head nod: ONE slow nod during speech, returns to level — feels natural
   • Head tilt: 10–15° to one side, held for the clip duration
-  • Slow exhale with shoulder drop at clip start — then static
-  • Eyes briefly down then back up — signals reflection
+  • Slow exhale with shoulder drop at clip start — then settles to static
+  • Eyes briefly down then back up — signals reflection, feels real
   • Smile arriving gradually during speech (not sudden, not pre-set)
+  • Natural blink patterns — eyes close briefly once or twice during speech
+  • Slight parting of lips before beginning to speak
 
-TIER 2 — MODERATE (constrained — use only when emotionally necessary):
+TIER 2 — MODERATE (use only when emotionally necessary):
   • Body lean: 5–10° forward/backward, HELD for entire clip duration
     (must state: "क्लिप की शुरुआत से अंत तक इसी मुद्रा में")
   • Hands clasped in lap with subtle finger movement ONLY IF hands were
@@ -108,7 +119,7 @@ NEVER ALLOWED (instant rejection):
   • Hand gestures or arm movements entering frame
   • Head turning more than 30°
   • Picking up, touching, or looking at any object
-  • Any posture change mid-clip
+  • Any posture change mid-clip (start one position, end another)
   • Standing up, sitting down, shifting weight
   • Any second action after an initial one
 
@@ -119,23 +130,42 @@ ALWAYS include this closing line in the ACTION block:
 SECTION 6 — DIALOGUE
 ──────────────────────────────────────────────────────────────
 Format exactly as:
-  चरित्र: "(बातचीत के लहजे में, warm और clear आवाज़ में) [dialogue text]"
+  चरित्र: "(बातचीत के लहजे में, [AGE_VOICE] आवाज़ में) [dialogue text]"
 
-Rules:
+TIER 3/4 DIALOGUE RULES:
+  • Language must feel like real spoken Hindi from a middle-class Indian home.
+    Not polished, not formal, not TED-talk. Like she is talking to a neighbour.
+  • Use natural fillers: "देखो,", "सच बताऊँ?", "मुझे लगा था...", "अब ऐसा है..."
+  • Avoid any English wellness/aspirational words (see Critical Rule 11).
+  • The hook (Clip 1 dialogue) must create instant curiosity: a confession,
+    a problem admission, or a surprising personal detail — not a product claim.
+  • Use simple sentence structures. Short clauses. Natural pauses via commas.
+
+OTHER RULES:
   • NO em-dashes (—) anywhere
   • NO hyphens (-) anywhere
   • Word count must be within the range for this clip's duration
-  • Dialogue is the EXACT text from the ProductionBrief — do not paraphrase
+  • Dialogue is based on the text from the ProductionBrief — preserve emotional intent
   • Tone must feel like a real person speaking from memory, not reading a script
 
 ──────────────────────────────────────────────────────────────
 SECTION 7 — AUDIO
 ──────────────────────────────────────────────────────────────
-Copy VERBATIM every clip:
+Specify an age-appropriate voice based on the character's age from the spec:
 
+  FOR CHARACTER AGE 18–25:
+    "युवा [AGE] वर्षीय की आवाज़, स्वाभाविक और ऊर्जावान, थोड़ी तेज़।"
+
+  FOR CHARACTER AGE 26–35:
+    "[AGE] वर्षीय महिला की आवाज़, आत्मविश्वास से भरी, संतुलित।"
+
+  FOR CHARACTER AGE 36+:
+    "परिपक्व [AGE] वर्षीय महिला की आवाज़, गर्म और धीर-गंभीर,
+     ज़िंदगी के अनुभव से आई समझ के साथ।"
+
+Then append VERBATIM every clip:
   "crystal-clear, studio-quality, close-mic recording।
    कोई echo नहीं, reverb नहीं, background noise नहीं।
-   आवाज़ naturally warm है।
    Dialogue के साथ perfect lip-sync — हर शब्द के साथ होंठ मेल खाते हैं।"
 
 ──────────────────────────────────────────────────────────────

@@ -196,10 +196,19 @@ class VeoClient:
     def _extract_generated_videos(operation) -> list:
         response = getattr(operation, "response", None)
         videos = getattr(response, "generated_videos", None) or []
+
         if not videos:
-            raise RuntimeError(
-                "Veo returned no generated videos despite reporting success."
+            # Empty generated_videos after a "success" is the API's silent RAI filter.
+            # Raise ContentPolicyError so the retry loop rephrases the prompt.
+            logger.warning(
+                "Veo returned empty generated_videos — likely a silent RAI filter. "
+                "Response object: %s", repr(response)
             )
+            raise ContentPolicyError(
+                "Veo generated no videos (silent content filter). "
+                "Prompt will be rephrased and retried."
+            )
+
         return videos
 
     @staticmethod

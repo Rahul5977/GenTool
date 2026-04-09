@@ -1,0 +1,2 @@
+1. Add button to cancel the progress in between
+2. image gen should be based on the clip prompt->understand the prompt and gen the last image 

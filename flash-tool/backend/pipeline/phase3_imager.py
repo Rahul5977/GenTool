@@ -105,6 +105,7 @@ def regenerate_single_keyframe(
     target_emotion: str,
     brief: ProductionBrief,
     clip: Optional[ClipPrompt] = None,
+    custom_prompt: Optional[str] = None,
 ) -> KeyFrame:
     """Regenerate one keyframe (called from /regen-image endpoint).
 
@@ -115,12 +116,13 @@ def regenerate_single_keyframe(
         target_emotion: Desired end expression.
         brief:          ProductionBrief (character spec + background).
         clip:           Corresponding ClipPrompt (used for description label).
+        custom_prompt:  Optional extra instructions from the user for this regen.
 
     Returns:
         New KeyFrame with updated image_b64.
     """
     if frame_index == 0:
-        return _generate_reference_frame(brief, clips=[])
+        return _generate_reference_frame(brief, clips=[], custom_prompt=custom_prompt)
 
     if clip is None:
         raise ValueError(f"clip must be provided for frame_index={frame_index}")
@@ -131,6 +133,7 @@ def regenerate_single_keyframe(
         target_emotion=target_emotion,
         brief=brief,
         clip=clip,
+        custom_prompt=custom_prompt,
     )
 
 
@@ -141,6 +144,7 @@ def regenerate_single_keyframe(
 def _generate_reference_frame(
     brief: ProductionBrief,
     clips: list[ClipPrompt],
+    custom_prompt: Optional[str] = None,
 ) -> KeyFrame:
     """Generate Frame 0 — the initial character anchor image."""
     char = brief.character
@@ -165,6 +169,10 @@ def _generate_reference_frame(
         locked_background=brief.locked_background,
     )
     prompt += f"\n\nOpening expression: {first_emotional_state}."
+
+    # Append user's custom feedback if provided
+    if custom_prompt:
+        prompt += f"\n\nUSER FEEDBACK FOR THIS REGEN: {custom_prompt}"
 
     image_b64: str | None = None
 
@@ -216,11 +224,14 @@ def _generate_transition_frame(
     target_emotion: str,
     brief: ProductionBrief,
     clip: ClipPrompt,
+    custom_prompt: Optional[str] = None,
 ) -> KeyFrame:
     """Generate a transition frame by editing the previous frame's expression."""
     char = brief.character
     accessories_str = ", ".join(char.accessories) if char.accessories else "none"
     marks_str = ", ".join(char.distinguishing_marks) if char.distinguishing_marks else "none"
+
+    custom_section = f"\n\nUSER FEEDBACK FOR THIS REGEN: {custom_prompt}" if custom_prompt else ""
 
     # Build the full instruction for the image edit
     instruction = (
@@ -235,6 +246,7 @@ def _generate_transition_frame(
         f"  Background: {brief.locked_background[:300]}\n"
         f"  Camera: TIGHT MCU chin to mid-chest, eye-level, static\n"
         f"  Output: 9:16 portrait, photorealistic, no text overlays"
+        f"{custom_section}"
     )
 
     result_b64 = gemini_image_client.edit_expression(

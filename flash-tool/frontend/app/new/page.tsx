@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 
 const COACHES = ["Rishika", "Rashmi", "Seema", "Pankaj", "Dev", "Arjun"];
-const CLIP_COUNTS = [3, 4, 5, 6];
+const CLIP_COUNTS = [3, 4, 5, 6, 7, 8];
 const VEO_MODELS = [
   { id: "veo-3.1-generate-preview", label: "Veo 3.1 Preview" },
   { id: "veo-3.0-generate-preview", label: "Veo 3.0 Preview" },
