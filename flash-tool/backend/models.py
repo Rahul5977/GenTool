@@ -55,6 +55,7 @@ class ProductionBrief(BaseModel):
     aspect_ratio: str = "9:16"
     coach: str = "Rishika"
     setting: str
+    voice_characteristics: str = ""
 
 
 class ClipPrompt(BaseModel):

@@ -36,7 +36,7 @@ from .. import config
 from ..ai.imagen_client import imagen_client
 from ..ai.gemini_client import gemini_image_client
 from ..models import ClipPrompt, KeyFrame, ProductionBrief
-from ..prompts.system_imager import IMAGEN_PROMPT_TEMPLATE, SYSTEM_IMAGER
+from ..prompts.system_imager import build_imagen_prompt, SYSTEM_IMAGER
 
 logger = logging.getLogger(__name__)
 
@@ -151,24 +151,44 @@ def _generate_reference_frame(
     accessories_str = ", ".join(char.accessories) if char.accessories else "none"
     marks_str = ", ".join(char.distinguishing_marks) if char.distinguishing_marks else "none"
 
-    # Use emotional state from brief.clips (ClipBrief), not ClipPrompt
-    first_emotional_state = (
-        brief.clips[0].emotional_state if brief.clips else "neutral, attentive"
+    # Derive opening emotion from Phase 2 clip prompts (verified, final) when available.
+    # Fall back to Phase 1 brief.clips if Phase 2 prompts weren't passed.
+    if clips:
+        # scene_summary is a one-sentence description of clip 1's emotional beat —
+        # derived from the verified Phase 2 prompt, not the raw script analysis.
+        first_emotional_state = (
+            clips[0].scene_summary
+            or clips[0].end_emotion
+            or "neutral, attentive"
+        )
+        emotion_source = "Phase 2 clip prompt"
+    else:
+        first_emotional_state = (
+            brief.clips[0].emotional_state if brief.clips else "neutral, attentive"
+        )
+        emotion_source = "Phase 1 brief"
+
+    logger.info(
+        "Phase 3: Frame 0 opening emotion (%s): %s",
+        emotion_source, first_emotional_state[:80],
     )
 
-    # Build Imagen prompt from template
-    prompt = IMAGEN_PROMPT_TEMPLATE.format(
-        age=char.age,
-        skin_tone=char.skin_tone,
-        skin_hex=char.skin_hex,
-        face_shape=char.face_shape,
-        hair=char.hair,
+    # Build physical baseline description for Imagen
+    physical_baseline = (
+        f"age {char.age}, {char.skin_tone} skin (hex {char.skin_hex}), "
+        f"{char.face_shape} face. {char.hair}. "
+        f"Accessories: {accessories_str}. "
+        f"Distinguishing marks: {marks_str}"
+    )
+
+    # Use parameterised builder — respects gender (woman/man/person)
+    prompt = build_imagen_prompt(
+        physical_baseline=physical_baseline,
         outfit=char.outfit,
-        accessories_str=accessories_str,
-        marks_str=marks_str,
+        gender=char.gender,
+        opening_emotion=first_emotional_state,
         locked_background=brief.locked_background,
     )
-    prompt += f"\n\nOpening expression: {first_emotional_state}."
 
     # Append user's custom feedback if provided
     if custom_prompt:

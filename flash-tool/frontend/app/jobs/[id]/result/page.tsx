@@ -23,6 +23,7 @@ export default function ResultPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Initial load — runs once on mount (videoKey only drives the VideoPlayer key, not data reload)
   useEffect(() => {
     async function load() {
       try {
@@ -36,13 +37,13 @@ export default function ResultPage() {
 
         const fetchedClips: ClipPrompt[] = clipsResp.clips ?? [];
         setClips(fetchedClips);
-        setClipRegenStates(
-          fetchedClips.map((c) => ({
-            loading: false,
-            showPromptEditor: false,
-            editedPrompt: c.prompt,
-            saved: false,
-          }))
+        // Only initialise states for clips that don't have one yet
+        setClipRegenStates((prev) =>
+          fetchedClips.map((c, i) =>
+            prev[i]
+              ? prev[i]
+              : { loading: false, showPromptEditor: false, editedPrompt: c.prompt, saved: false }
+          )
         );
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed to load");
@@ -51,7 +52,7 @@ export default function ResultPage() {
       }
     }
     load();
-  }, [id, videoKey]);
+  }, [id]); // videoKey removed — data reload is now manual and targeted
 
   function setClipState(clipIndex: number, patch: Partial<ClipRegenState>) {
     setClipRegenStates((prev) => {
@@ -61,6 +62,26 @@ export default function ResultPage() {
     });
   }
 
+  // Save prompt only (no regen) — works after the job is done
+  async function handleSavePrompt(clipIndex: number) {
+    const state = clipRegenStates[clipIndex];
+    const clip = clips[clipIndex];
+    if (!state || !clip) return;
+    setRegenError("");
+    try {
+      await api.saveClipPrompt(id, clipIndex, { prompt: state.editedPrompt });
+      // Reflect the saved prompt in the clips array so hasEdits correctly resets
+      setClips((prev) => {
+        const next = [...prev];
+        next[clipIndex] = { ...next[clipIndex], prompt: state.editedPrompt };
+        return next;
+      });
+      setClipState(clipIndex, { saved: true });
+    } catch (e: unknown) {
+      setRegenError(e instanceof Error ? e.message : "Save failed");
+    }
+  }
+
   async function handleRegenClip(clipIndex: number) {
     const state = clipRegenStates[clipIndex];
     if (!state) return;
@@ -68,10 +89,31 @@ export default function ResultPage() {
     setClipState(clipIndex, { loading: true });
     setRegenError("");
     try {
-      const updatedPrompt = state.editedPrompt !== clips[clipIndex]?.prompt
-        ? state.editedPrompt
-        : undefined;
+      // Pass the edited prompt (backend will save it and use it for generation)
+      const updatedPrompt =
+        state.editedPrompt !== clips[clipIndex]?.prompt ? state.editedPrompt : undefined;
       await api.regenClip(id, { clip_index: clipIndex, updated_prompt: updatedPrompt });
+
+      // Fetch updated clip list from server (only clips — not full page reload)
+      const clipsResp = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v2/jobs/${id}/clips`
+      ).then((r) => (r.ok ? r.json() : { clips: [] }));
+      const fetchedClips: ClipPrompt[] = clipsResp.clips ?? [];
+      setClips(fetchedClips);
+
+      // Reset ONLY this clip's state — all other editors stay open and unchanged
+      setClipRegenStates((prev) => {
+        const next = [...prev];
+        next[clipIndex] = {
+          loading: false,
+          showPromptEditor: false,
+          editedPrompt: fetchedClips[clipIndex]?.prompt ?? "",
+          saved: false,
+        };
+        return next;
+      });
+
+      // Re-mount the video player to pick up the new clip URL
       setVideoKey((k) => k + 1);
     } catch (e: unknown) {
       setRegenError(e instanceof Error ? e.message : "Regen failed");
@@ -239,28 +281,45 @@ export default function ResultPage() {
                           <div className="flex items-center gap-2">
                             {hasEdits && (
                               <button
-                                onClick={() => setClipState(i, { editedPrompt: clip.prompt })}
+                                onClick={() =>
+                                  setClipState(i, { editedPrompt: clip.prompt, saved: false })
+                                }
                                 className="text-xs text-[#4b5563] hover:text-[#9ca3af] transition-colors"
                               >
                                 Reset
                               </button>
                             )}
-                            {hasEdits && (
+                            {hasEdits && !state.saved && (
                               <span className="text-xs text-amber-400 mono">unsaved</span>
+                            )}
+                            {state.saved && (
+                              <span className="text-xs text-green-400 mono">✓ saved</span>
                             )}
                           </div>
                         </div>
                         <textarea
                           value={state.editedPrompt}
-                          onChange={(e) => setClipState(i, { editedPrompt: e.target.value })}
+                          onChange={(e) =>
+                            setClipState(i, { editedPrompt: e.target.value, saved: false })
+                          }
                           rows={14}
                           className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg p-2.5 text-xs text-[#9ca3af] mono leading-relaxed resize-y focus:outline-none focus:border-violet-500/40 transition-colors"
                           spellCheck={false}
                         />
-                        <p className="text-[10px] text-[#3a3a3a] mono">
-                          {state.editedPrompt.length} chars ·
-                          Edits apply on next ↺ Regen
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-[#3a3a3a] mono">
+                            {state.editedPrompt.length} chars
+                          </p>
+                          {hasEdits && (
+                            <button
+                              onClick={() => handleSavePrompt(i)}
+                              disabled={state.loading}
+                              className="px-3 py-1 rounded-lg text-xs font-medium border border-violet-500/40 text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 disabled:opacity-40 transition-all"
+                            >
+                              ↓ Save edits
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

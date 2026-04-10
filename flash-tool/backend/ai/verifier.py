@@ -76,7 +76,20 @@ def verify_prompts(clips: list[ClipPrompt]) -> list[ClipPrompt]:
     # Step 4 — apply report back to ClipPrompt objects
     # ---------------------------------------------------------------
     clip_map: dict[int, ClipPrompt] = {c.clip_number: c for c in clips}
-    report_clips: list[dict] = report.get("clips", [])
+
+    # SYSTEM_VERIFIER returns one JSON object per clip, so Gemini may return
+    # either a bare list (when >1 clip) or a dict (when processing one clip).
+    # Normalise both shapes into a flat list of per-clip dicts.
+    if isinstance(report, list):
+        report_clips: list[dict] = report
+    elif isinstance(report, dict):
+        # Wrapper shape: {"clips": [...], "overall_score": ...}
+        report_clips = report.get("clips", [])
+        # Single-clip shape: {"clip": 1, "status": ..., ...}
+        if not report_clips and "clip" in report:
+            report_clips = [report]
+    else:
+        report_clips = []
 
     for entry in report_clips:
         clip_num = entry.get("clip")
@@ -109,8 +122,8 @@ def verify_prompts(clips: list[ClipPrompt]) -> list[ClipPrompt]:
         if clip.clip_number not in reported_clip_nums:
             clip.verified = True
 
-    overall_score = report.get("overall_score", 100)
-    needs_review = report.get("needs_human_review", False)
+    overall_score = report.get("overall_score", 100) if isinstance(report, dict) else 100
+    needs_review = report.get("needs_human_review", False) if isinstance(report, dict) else False
     logger.info(
         "Verification complete — overall_score=%d needs_human_review=%s",
         overall_score,

@@ -17,11 +17,11 @@ from ..prompts.system_analyser import SYSTEM_ANALYSER
 
 logger = logging.getLogger(__name__)
 
-# Allowed word-count ranges keyed by clip duration
+# Allowed word-count ranges keyed by clip duration (flexible — meaning over count)
 _WORD_RANGES: dict[int, tuple[int, int]] = {
-    8: (22, 24),
-    7: (17, 20),
-    5: (11, 14),
+    8: (20, 25),
+    7: (17, 21),
+    5: (13, 17),
 }
 
 # Natural Hindi filler phrases for under-count expansion (each adds ~3-5 words)
@@ -114,7 +114,58 @@ def _parse_brief(raw: dict, coach: str) -> ProductionBrief:
         aspect_ratio=raw.get("aspect_ratio", "9:16"),
         coach=raw.get("coach", coach),
         setting=raw.get("setting", ""),
+        voice_characteristics=_build_voice_characteristics(character.age, character.gender),
     )
+
+
+# ---------------------------------------------------------------------------
+# Voice characteristics
+# ---------------------------------------------------------------------------
+
+def _build_voice_characteristics(age: int, gender: str) -> str:
+    """Derive locked voice characteristics from character age and gender.
+
+    These are copied verbatim into every clip's AUDIO block so the voice
+    stays identical across the entire ad.
+    """
+    gender_lower = gender.lower()
+    is_female = "female" in gender_lower or "महिला" in gender_lower
+    person = "भारतीय महिला" if is_female else "भारतीय पुरुष"
+    accent = "Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur style)"
+    quality = "Close-mic (15cm), -14 LUFS, zero reverb, zero echo, zero background noise"
+
+    if is_female:
+        if age <= 25:
+            return (
+                f"युवा {age} वर्षीय {person} की आवाज़, स्वाभाविक और ऊर्जावान। "
+                f"warm medium pitch — not high, not low। {accent}। {quality}।"
+            )
+        elif age <= 35:
+            return (
+                f"{age} वर्षीय {person} की आवाज़, आत्मविश्वास से भरी, संतुलित। "
+                f"warm medium pitch, moderate conversational pace। {accent}। {quality}।"
+            )
+        else:
+            return (
+                f"परिपक्व {age} वर्षीय {person} की आवाज़, गर्म और धीर-गंभीर। "
+                f"warm medium-low pitch, steady measured pace। {accent}। {quality}।"
+            )
+    else:
+        if age <= 25:
+            return (
+                f"युवा {age} वर्षीय {person} की आवाज़, स्वाभाविक और ऊर्जावान। "
+                f"warm medium pitch। {accent}। {quality}।"
+            )
+        elif age <= 35:
+            return (
+                f"{age} वर्षीय {person} की आवाज़, आत्मविश्वास से भरी, संतुलित। "
+                f"warm medium-low pitch, moderate conversational pace। {accent}। {quality}।"
+            )
+        else:
+            return (
+                f"परिपक्व {age} वर्षीय {person} की आवाज़, गर्म और धीर-गंभीर। "
+                f"warm low pitch, steady measured pace। {accent}। {quality}।"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -191,26 +242,46 @@ def _fix_clip(clip: ClipBrief) -> tuple[ClipBrief, list[str]]:
     lo, hi = _WORD_RANGES[duration]
     actual = _count_words(clip.dialogue)
 
-    if actual > hi:
+    # Allow 1–2 words outside range — meaning preservation takes priority.
+    # Only auto-correct when deviation is 3+ words.
+    _LENIENCY = 2
+
+    if actual > hi + _LENIENCY:
         clip.dialogue = _trim_dialogue(clip.dialogue, hi)
         clipped_count = _count_words(clip.dialogue)
         issues.append(
-            f"Clip {clip.clip_number}: word count {actual} exceeded {hi} for {duration}s — "
-            f"trimmed to {clipped_count} words"
+            f"Clip {clip.clip_number}: word count {actual} exceeded {hi + _LENIENCY} for {duration}s — "
+            f"trimmed to {clipped_count} words (fillers removed)"
         )
         clip.word_count = clipped_count
 
-    elif actual < lo:
+    elif actual > hi:
+        # 1–2 words over — log warning but preserve meaning, do not trim
+        issues.append(
+            f"Clip {clip.clip_number}: word count {actual} is {actual - hi} over ideal max "
+            f"{hi} for {duration}s — kept for meaning preservation"
+        )
+        clip.word_count = actual
+
+    elif actual < lo - _LENIENCY:
         clip.dialogue, new_count = _expand_dialogue(clip.dialogue, lo)
         # Expansion can overshoot the ceiling — trim if needed
         if new_count > hi:
             clip.dialogue = _trim_dialogue(clip.dialogue, hi)
             new_count = _count_words(clip.dialogue)
         issues.append(
-            f"Clip {clip.clip_number}: word count {actual} below {lo} for {duration}s — "
+            f"Clip {clip.clip_number}: word count {actual} below {lo - _LENIENCY} for {duration}s — "
             f"expanded to {new_count} words"
         )
         clip.word_count = new_count
+
+    elif actual < lo:
+        # 1–2 words under — log warning but do not pad (avoids unnatural expansion)
+        issues.append(
+            f"Clip {clip.clip_number}: word count {actual} is {lo - actual} under ideal min "
+            f"{lo} for {duration}s — kept as-is (natural pacing)"
+        )
+        clip.word_count = actual
 
     else:
         clip.word_count = actual

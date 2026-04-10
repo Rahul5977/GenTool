@@ -7,19 +7,33 @@ A bad prompt = ghost face, drifting character, background objects appearing/disa
 broken lip-sync, or a video that looks obviously AI-generated and fake.
 
 ════════════════════════════════════════════════════════════
-RULE 1 — DIALOGUE WORD COUNT
+RULE 1 — DIALOGUE WORD COUNT (FLEXIBLE RANGES)
 ════════════════════════════════════════════════════════════
 Count every word in the dialogue. Include quoted words inside the dialogue.
 
-  8-second clip  →  22–24 Hindi words exactly
-  7-second clip  →  17–20 Hindi words exactly
-  5-second clip  →  11–14 Hindi words exactly
+  8-second clip  →  20–25 Hindi words (optimal: 22–23)
+  7-second clip  →  17–21 Hindi words (optimal: 19)
+  5-second clip  →  13–17 Hindi words (optimal: 15)
 
-Under minimum → slow-motion speech, awkward silence, unnatural gaps between words
-Over maximum  → chipmunk rush, words get SKIPPED, lip movements don't match
 Within range  → perfect sync, every word spoken clearly
+1–2 words outside range → acceptable (minor deduction, -2 pts)
+3–4 words outside range → moderate issue (-5 pts)
+5+ words outside range → significant issue (-10 pts)
 
-FIX: Trim or expand. Keep the emotional core. Do not change speaker or tone.
+DEDUCTION WEIGHTS:
+  Within 20–25 for 8s (17–21 for 7s, 13–17 for 5s): 0 deduction
+  1–2 words outside range: -2 points
+  3–4 words outside range: -5 points
+  5+ words outside range: -10 points
+
+MEANING PRESERVATION — CHECK BEFORE TRIMMING:
+1. Is complete sentence meaning preserved?
+2. Are emotional intensity words kept? (बहुत, काफी, बेहद, सच में)
+3. Are all specific details present? (product names, numbers, places)
+If trimming is needed: remove ONLY pure fillers (जैसे, वैसे, बस, अरे, यार).
+NEVER remove intensity words, emotional particles, or specific details.
+
+FIX: Trim or expand using fillers/particles only. Keep emotional core intact.
 Count again after fixing — confirm within range.
 
 ⚠️ VERBATIM CHECK — EVERY WORD MUST BE SPOKEN:
@@ -507,6 +521,32 @@ FIX — use this mapping:
   Exhaustion  → 'आँखों के नीचे थकान, पलकें थोड़ी भारी, नज़र सीधी पर सुस्त'
 
 ════════════════════════════════════════════════════════════
+RULE 24 — DIALOGUE VERBATIM PRESERVATION
+════════════════════════════════════════════════════════════
+Compare the clip dialogue against the original script dialogue provided in the
+CLIP BRIEFS section of the user message.
+
+Check:
+□ Are all core words present? (nouns, verbs, adjectives, numbers, names)
+□ Are particles identical? (है, था, की, में, से, etc.)
+□ Is word order identical?
+□ Are specific terms unchanged? (product names, place names, numbers)
+
+Allowed changes:
+✓ Removing pure fillers for word count (जैसे, वैसे, अच्छा, बस — only if needed)
+✓ Adding conversation-natural particles for expansion (ना, तो, ही — only if needed)
+
+Forbidden changes:
+✗ Word substitution (त्वचा → skin, ऑयली → तैलीय)
+✗ Summarization (listing products → "सब चीज़ें")
+✗ Reordering for "flow"
+✗ Tense changes
+
+FLAG: If dialogue contains word substitutions or summarization vs. original script.
+FIX: Restore original script words. Remove substituted terms. Re-check word count.
+Show which words were changed and restore the original script words.
+
+════════════════════════════════════════════════════════════
 SCORING WEIGHTS — NOT ALL RULES ARE EQUAL
 ════════════════════════════════════════════════════════════
 When calculating clip_score (0–100), start at 100 and deduct:
@@ -517,7 +557,7 @@ CRITICAL (each violation = -20 points):
   - Rule 21: No arc closure between clip 1 and last clip
 
 HIGH (each violation = -10 points):
-  - Rule 1: Dialogue word count out of range (22–24 for 8s, 17–20 for 7s, 11–14 for 5s)
+  - Rule 1: Dialogue word count 5+ words outside flexible range (20–25 for 8s, 17–21 for 7s, 13–17 for 5s)
   - Rule 13: Em-dash in dialogue
   - Rule 8: Face lock statement missing
   - Rule 23: Emotion described by label, not physical signal
@@ -537,6 +577,7 @@ MEDIUM (each violation = -5 points):
   - Rule 17: Camera-facing instruction missing
   - Rule 20: Performance language instead of micro-behaviour
   - Rule 22: Eye naturalness line missing
+  - Rule 24: Dialogue word substitution or summarization vs. original script
 
 A clip_score above 80 = ready to generate.
 A clip_score below 60 = critical issues — flag for user review.

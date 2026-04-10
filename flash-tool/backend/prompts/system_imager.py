@@ -122,29 +122,54 @@ def build_imagen_prompt(
     Returns:
         Fully formatted Imagen prompt string.
     """
-    gender_word = "woman" if "female" in gender.lower() or "महिला" in gender else "person"
+    gender_word = (
+        "woman" if "female" in gender.lower() or "महिला" in gender
+        else "man" if "male" in gender.lower() or "पुरुष" in gender
+        else "person"
+    )
     return (
+        # ── Background first — Imagen must anchor on this before generating the subject ──
+        f"MANDATORY BACKGROUND (copy exactly — do NOT substitute or simplify): "
+        f"{locked_background} "
+        f"The background described above is LOCKED. Render it precisely. "
+        f"Do not replace with a plain wall, studio backdrop, or any other setting. "
+
+        # ── Subject ──
         f"Hyper-realistic smartphone photo of an everyday Indian {gender_word}. "
         f"{physical_baseline}. Wearing {outfit}. "
+
+        # ── Hands strictly off frame ──
+        f"HANDS AND ARMS: completely outside the frame — NOT VISIBLE at all. "
+        f"No hands, no forearms, no wrists in frame. "
+        f"The crop ends at mid-chest; anything below that is cut off. "
+
+        # ── Camera and framing ──
+        f"Tight medium close-up shot (TIGHT MCU): chin to mid-chest only, eye-level, camera absolutely still. "
+        f"Subject fills 70–80% of the frame vertically. "
+
+        # ── Technical / capture style ──
         f"Shot on an ordinary mid-range Android smartphone: slight overexposure on one side, "
         f"no ring light, no softbox, no studio lighting setup, natural slightly uneven exposure. "
         f"Skin tone: warm brown to medium brown — NOT fair, NOT light-skinned, NOT model-complexion. "
         f"Build: average, ordinary — NOT gym-fit, NOT model-thin, NOT aspirational. "
         f"Ultra-realistic skin texture with visible pores, no airbrushing, no beauty mode, no skin smoothing filter. "
+
+        # ── Expression ──
         f"Expression: direct, slightly self-conscious eye contact with the camera lens — like "
         f"someone about to say something personal to a close friend, not performing for an audience. "
         f"Slight tension in the jaw or eyes suggesting they are about to share something real. "
         f"NOT smiling for a photo. NOT posing. Just present and honest. "
         f"Opening emotional state: {opening_emotion}. "
+
+        # ── Authenticity ──
         f"Clothing looks lived-in, not brand new. Hair naturally styled at home, not salon-done. "
         f"Looks authentically like their stated occupation and life stage — "
         f"a housewife looks like she has been home all day, "
         f"an office worker looks like they just finished a long shift, "
         f"a student looks like they haven't slept enough. "
         f"Completely unretouched. Looks like a real person recording a UGC video at home. "
-        f"Setting: {locked_background} "
-        f"Tight medium close-up shot, chin to mid-chest, eye-level, camera absolutely still. "
-        f"Subject fills 70–80% of the frame vertically. "
+
+        # ── Format ──
         f"Format: 9:16 vertical portrait (1080×1920). Full frame edge to edge — no black bars, "
         f"no letterbox, no UI overlays, no subtitles, no watermarks. "
         f"Photorealistic, not illustrated. Skin has natural variation and imperfection. "
@@ -195,6 +220,7 @@ def build_transition_frame_prompt(
         f"  — Accessories: every item at identical position\n"
         f"  — Background: every object in every exact position — DO NOT change background\n"
         f"  — Camera framing: TIGHT MCU, chin to mid-chest, eye-level\n"
+        f"  — Hands/arms: completely out of frame — NOT VISIBLE (same as input image)\n"
         f"  — Lighting: same direction, same temperature, same shadow fill\n"
         f"  — Head position: same tilt and turn — ONLY the expression changes\n"
         f"  — Eye naturalness: soft focus on camera, natural blink position, "
@@ -211,7 +237,7 @@ def build_transition_frame_prompt(
 # ─────────────────────────────────────────────────────────────────────────────
 
 IMAGEN_PROMPT_TEMPLATE = """
-Hyper-realistic smartphone photo of an everyday Indian woman, age {age}, {skin_tone} skin (hex {skin_hex}),
+Hyper-realistic smartphone photo of an everyday Indian woman/men, age {age}, {skin_tone} skin (hex {skin_hex}),
 {face_shape} face. {hair}.
 Wearing: {outfit}.
 Accessories: {accessories_str}.

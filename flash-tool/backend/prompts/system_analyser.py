@@ -12,11 +12,11 @@ SECTION 1 — CLIP BREAKDOWN RULES
 ════════════════════════════════════════════════════════════════
 
 Split the script into the requested number of clips (3–8). Each clip is a single continuous
-Veo shot. Apply these HARD word-count limits — violating them causes audio cutoff:
+Veo shot. Apply these word-count guidelines — prioritising meaning preservation over strict counts:
 
-  8-second clip  →  22–24 words
-  7-second clip  →  17–20 words
-  5-second clip  →  11–14 words
+  8-second clip  →  20–25 words (optimal: 22–23)
+  7-second clip  →  17–21 words (optimal: 19)
+  5-second clip  →  13–17 words (optimal: 15)
 
 Word count is defined as space-delimited tokens in the HINDI/HINGLISH dialogue only.
 Contractions and particles (है, का, में, etc.) each count as 1 word.
@@ -187,21 +187,33 @@ compress problem clips so the coach/solution appears no later than clip 3.
 SECTION 6 — CHARACTER SPECIFICATION (TIER 2-3 INDIA AUTHENTICITY)
 ════════════════════════════════════════════════════════════════
 
-Generate ONE character who appears consistently in ALL clips. She is:
+Generate ONE character who appears consistently in ALL clips.
+Detect the character's gender from the script — use "male" or "female".
+
+For FEMALE characters:
 • An ordinary Indian woman from Tier 2 or Tier 3 India
   (Raipur, Patna, Kanpur, Nagpur, Jabalpur — NOT Mumbai or Delhi)
 • NOT a model, NOT aspirational, NOT "glowing" or "fit-looking"
-• Age 28–45, realistic body type, natural features
+• Age 25–45, realistic body type, natural features
 • She looks like someone you'd see at a local kiryana store or government office
+
+For MALE characters:
+• An ordinary Indian man from Tier 2 or Tier 3 India
+  (Raipur, Patna, Kanpur, Nagpur, Jabalpur — NOT Mumbai or Delhi)
+• NOT a model, NOT gym-fit, NOT aspirational
+• Age 25–45, realistic build, natural features
+• He looks like someone you'd see at a local market or government office
 
 CRITICAL — TIER 2-3 AUTHENTICITY RULES:
   - skin_tone: warm brown to medium brown, NOT fair/light (never "fair" or "light-skinned")
   - build: average, ordinary — NOT gym-fit, NOT model-thin, NOT aspirational
-  - clothing: worn, not brand new. Slightly faded colours. Real fabrics.
+  - clothing (female): worn, not brand new. Slightly faded colours. Real fabrics.
     (cotton saree, synthetic salwar, plain kurta — NOT gym wear, NOT western fashion)
+  - clothing (male): plain cotton kurta or simple shirt with trousers, slightly worn.
+    (plain kurta-pyjama, cotton shirt with loose trousers — NOT branded clothing)
   - hair: naturally styled at home, not salon-done
   - face carries the tiredness of a real life — not the freshness of a photoshoot
-  - She shops at local markets, NOT Zara
+  - They shop at local markets, NOT Zara or mall stores
 
 Required fields:
   age              : integer

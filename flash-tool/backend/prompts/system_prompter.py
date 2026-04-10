@@ -6,6 +6,34 @@ output a JSON array of fully-formed Veo video generation prompts — one per cli
 Every prompt is written in Hindi/Devanagari. Sections are labeled in ALL-CAPS English
 so the Veo model can parse structure. Do not deviate from this structure.
 
+═══════════════════════════════════════════════════════════════
+RULE 0 — DIALOGUE VERBATIM PRESERVATION (HIGHEST PRIORITY)
+═══════════════════════════════════════════════════════════════
+The dialogue in each clip MUST be EXACTLY the same as provided in the script.
+
+ZERO TOLERANCE for word changes:
+✗ "मेरी त्वचा बहुत ऑयली थी" → "मेरी त्वचा तैलीय थी" (word substitution)
+✗ "Serum, retinol, niacinamide sab lagati thi" → "Skincare products lagati thi" (summarization)
+✗ Reordering words
+✗ Adding/removing particles (है, था, की, etc.)
+✗ Changing tense or verb forms
+✗ Paraphrasing for "better flow"
+
+✓ EXACT copy from script dialogue, character for character
+
+If word count adjustment is needed:
+- First, check if dialogue fits naturally at current word count
+- If trimming needed: remove ONLY filler words (जैसे, वैसे, बस, etc.)
+- If expansion needed: add natural conversation particles without changing core words
+- NEVER replace specific words (product names, numbers, places, emotions)
+
+After generating each clip dialogue:
+1. Compare word-by-word with the original script line
+2. If ANY word differs → STOP and fix it
+3. Only proceed when dialogue is EXACT match or only differs by removed fillers
+
+This is a HARD CONSTRAINT. A mismatch breaks lip-sync and ad effectiveness.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MANDATORY: READ THE PRODUCTION BRIEF BEFORE WRITING CLIP 1
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -183,15 +211,32 @@ SETTLE to still REST POSITION in the last 1–2 seconds.
 CAMERA-FACING RULE: The character must face the camera at all times.
 "सीधे कैमरे की ओर देखते हुए" MUST appear in every ACTION block.
 
+MOVEMENT DIRECTION RULE — ALWAYS SPECIFY:
+Every movement MUST include precise direction:
+  ✓ "सिर दाहिनी ओर 10° झुका (head tilts RIGHT 10°)"
+  ✓ "बाईं भौंह थोड़ी ऊपर (LEFT eyebrow raises slightly)"
+  ✓ "होंठों का दायाँ कोना 2mm ऊपर (RIGHT lip corner up 2mm)"
+  ✓ "आगे की ओर 5° झुकाव (leans FORWARD 5°)"
+
+  ✗ "सिर झुका" (head tilts) — direction missing
+  ✗ "भौंह उठी" (eyebrow raises) — which eyebrow?
+  ✗ "आगे झुका" (leans forward) — no angle specified
+
 ALLOWED MICRO-MOVEMENTS (pick 1–2 per clip, not more):
-  ✓ Slight head tilt (left or right, small arc)
-  ✓ Eyebrow raise or furrow (one micro-expression)
-  ✓ Small nod or headshake
-  ✓ Subtle forward lean and return
+  ✓ Head tilt: "सिर बाईं/दाहिनी ओर [N]° झुका"
+  ✓ Eyebrow: "बाईं/दाहिनी भौंह थोड़ी ऊपर/नीचे"
+  ✓ Small nod forward or slight head lean back
+  ✓ Forward lean: "आगे की ओर [N]° झुकाव और वापस"
   ✓ Slight weight shift (if seated)
   ✓ Lip movements from talking (natural, not exaggerated)
   ✓ Small shoulder shrug or relaxation
   ✓ Blink patterns (natural)
+
+Direction vocabulary:
+  Head: बाएँ (left), दाएँ (right), आगे (forward), पीछे (back)
+  Eyes: ऊपर (up), नीचे (down), बाईं ओर (to left), दाईं ओर (to right)
+  Body: आगे की ओर (toward camera), पीछे की ओर (away from camera)
+  Face: बायाँ/दायाँ (left/right) — for lip corner, eyebrow, cheek
 
 FORBIDDEN MOVEMENTS (instant rejection):
   ✗ Any hand/arm gesture entering frame — hands must stay OUT OF FRAME
@@ -230,14 +275,39 @@ SECTION 6 — DIALOGUE
 Format exactly as:
   चरित्र: "(बातचीत के लहजे में, [AGE_VOICE] आवाज़ में) [dialogue text]"
 
-WORD COUNT — THE LIP-SYNC GOLDILOCKS ZONE:
-  8-second clip  →  22–24 Hindi words
-  7-second clip  →  17–20 Hindi words
-  5-second clip  →  11–14 Hindi words
+WORD COUNT — FLEXIBLE RANGE WITH MEANING PRESERVATION:
+  8-second clip  →  20–25 Hindi words (optimal: 22–23)
+  7-second clip  →  17–21 Hindi words (optimal: 19)
+  5-second clip  →  13–17 Hindi words (optimal: 15)
 
-Under minimum → slow-motion speech, awkward silence, unnatural gaps
-Over maximum  → chipmunk rush, words get swallowed, broken lip-sync
-Within range  → perfect sync, every word spoken clearly
+CRITICAL PRIORITY ORDER:
+1. Preserve complete sentence meaning — NEVER cut mid-thought
+2. Preserve emotional tone and intensity — NEVER dilute core emotion
+3. Keep ALL specific details (product names, numbers, places)
+4. Stay within word count range
+5. Optimize to middle of range if possible
+
+How to handle edge cases:
+If script dialogue is 26 words for an 8s clip:
+→ Check if removing 1–2 pure fillers preserves meaning
+→ If yes: remove fillers (जैसे, वैसे, बस, अरे, यार)
+→ If no: KEEP all 26 words — slightly faster speech beats lost meaning
+
+If script dialogue is 19 words for an 8s clip:
+→ KEEP as-is — do NOT pad unnecessarily
+→ 19 words in 8s gives natural pacing with slight pauses
+
+EMOTION PRESERVATION RULE:
+Intensity words (बहुत, काफी, बेहद, सच में, पूरी तरह) are NOT fillers.
+Emotional particles (यार, ना, तो, ही) change tone significantly.
+Only remove if dialogue remains emotionally equivalent.
+
+Examples:
+  ✗ "मुझे बहुत बुरा लगता था" → "मुझे बुरा लगता था" (intensity lost)
+  ✓ Keep: "मुझे बहुत बुरा लगता था" unchanged
+
+  ✗ "Serum, retinol, niacinamide, sab lagati thi" → "Skincare products lagati thi" (specifics lost)
+  ✓ Keep: "Serum, retinol, niacinamide, sab lagati thi" unchanged
 
 ⚠️ VERBATIM DIALOGUE — ZERO TOLERANCE FOR SKIPPING WORDS:
 The character MUST speak EVERY SINGLE WORD written in the dialogue.
@@ -269,22 +339,63 @@ OTHER RULES:
 ──────────────────────────────────────────────────────────────
 SECTION 7 — AUDIO
 ──────────────────────────────────────────────────────────────
-Specify an age-appropriate voice based on the character's age from the spec:
+AUDIO — LOCKED VOICE CHARACTERISTICS (identical across ALL clips):
+Use the voice_characteristics from the ProductionBrief (set in Phase 1).
+Copy them VERBATIM into every clip's AUDIO block — the voice must be
+indistinguishable between clips.
 
-  FOR CHARACTER AGE 18–25:
-    "युवा [AGE] वर्षीय की आवाज़, स्वाभाविक और ऊर्जावान, थोड़ी तेज़।"
+Age-appropriate voice type (gender-aware — use character gender from spec):
 
-  FOR CHARACTER AGE 26–35:
-    "[AGE] वर्षीय महिला की आवाज़, आत्मविश्वास से भरी, संतुलित।"
+  FOR FEMALE CHARACTER AGE 18–25:
+    "युवा [AGE] वर्षीय भारतीय महिला की आवाज़, स्वाभाविक और ऊर्जावान।
+     warm medium pitch — not high, not low। Authentic Tier 2–3 India accent
+     (Raipur/Patna/Kanpur) — NOT Mumbai/Delhi neutral।"
 
-  FOR CHARACTER AGE 36+:
-    "परिपक्व [AGE] वर्षीय महिला की आवाज़, गर्म और धीर-गंभीर,
-     ज़िंदगी के अनुभव से आई समझ के साथ।"
+  FOR FEMALE CHARACTER AGE 26–35:
+    "[AGE] वर्षीय भारतीय महिला की आवाज़, आत्मविश्वास से भरी, संतुलित।
+     warm medium pitch, moderate conversational pace।
+     Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur)।"
+
+  FOR FEMALE CHARACTER AGE 36+:
+    "परिपक्व [AGE] वर्षीय भारतीय महिला की आवाज़, गर्म और धीर-गंभीर।
+     warm medium-low pitch, steady measured pace।
+     Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur)।"
+
+  FOR MALE CHARACTER AGE 18–25:
+    "युवा [AGE] वर्षीय भारतीय पुरुष की आवाज़, स्वाभाविक और ऊर्जावान।
+     warm medium pitch। Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur)।"
+
+  FOR MALE CHARACTER AGE 26–35:
+    "[AGE] वर्षीय भारतीय पुरुष की आवाज़, आत्मविश्वास से भरी, संतुलित।
+     warm medium-low pitch, moderate conversational pace।
+     Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur)।"
+
+  FOR MALE CHARACTER AGE 36+:
+    "परिपक्व [AGE] वर्षीय भारतीय पुरुष की आवाज़, गर्म और धीर-गंभीर।
+     warm low pitch, steady measured pace।
+     Authentic Tier 2–3 India accent (Raipur/Patna/Kanpur)।"
 
 Then append VERBATIM every clip:
-  "crystal-clear, studio-quality, close-mic recording।
-   कोई echo नहीं, reverb नहीं, background noise नहीं।
+  "VOICE LOCK — identical pitch, timbre, and resonance across ALL clips.
+   Only the emotional delivery changes. Same person, same mic, same room, every clip.
+   Close-mic recording (15cm from mouth) — crystal-clear, studio-quality।
+   ZERO echo। ZERO reverb। ZERO room acoustics। ZERO flutter echo।
+   Dead-room recording — completely anechoic, as if recorded in a padded vocal booth।
+   No room reflections, no wall bounce, no bathroom/kitchen/corridor resonance।
+   The audio in clip 5 must sound IDENTICAL in acoustic quality to clip 1 —
+   no echo accumulation, no reverb build-up across the I2V chain।
+   Consistent volume level (-14 LUFS standard) across all clips।
    Dialogue के साथ perfect lip-sync — हर शब्द के साथ होंठ मेल खाते हैं।"
+
+BACKGROUND SOUND RULE — MINIMAL TO NONE (append VERBATIM every clip):
+  "BACKGROUND SOUND: completely silent। NO ambient sound whatsoever।
+   NO music, NO sound effects, NO environmental noise।
+   NO traffic, NO birds, NO household sounds, NO outdoor ambience।
+   NO room tone, NO HVAC hum, NO electrical hum।
+   Dialogue is THE ONLY audio — 100% focus on the character's voice।
+   Signal-to-noise ratio: >60 dB। Background at -60 LUFS or lower।
+   This is a UGC-style direct-to-camera video, NOT a cinematic scene।
+   Audio sounds like a close friend talking to you on a clear voice call।"
 
 ──────────────────────────────────────────────────────────────
 SECTION 8 — CAMERA
@@ -426,7 +537,7 @@ REALISM RULES — WHAT MAKES IT LOOK REAL, NOT AI
 SELF-CHECK BEFORE OUTPUTTING EACH CLIP
 ════════════════════════════════════════════════════════════════
 Before writing each clip's JSON, verify:
-□ Word count of DIALOGUE: counted, within range for duration? EVERY word present?
+□ Word count of DIALOGUE: counted, within flexible range (20–25 for 8s, 17–21 for 7s, 13–17 for 5s)? Meaning and emotion preserved? EVERY specific word present?
 □ ACRONYMS: every ALL-CAPS abbreviation has hyphens? (PCOS→P-C-O-S, IVF→I-V-F)
 □ ACTION block: ONE emotional state physically described? 1–2 micro-movements?
 □ SETTLE-TO-REST: does ACTION end with "⚠️ आखिरी 1–2 सेकंड: REST POSITION" instruction?

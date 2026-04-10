@@ -306,6 +306,31 @@ async def approve_images(job_id: str, body: ApproveImagesRequest):
 
 
 # ---------------------------------------------------------------------------
+# Save clip prompt (no regen — works in any job status)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v2/jobs/{job_id}/clips/{clip_index}/save-prompt")
+async def save_clip_prompt(job_id: str, clip_index: int, body: UpdateClipPromptRequest):
+    """Persist an edited clip prompt without triggering regeneration.
+
+    Unlike PUT /clips/{clip_index} (which is gated to AWAITING_PROMPT_REVIEW),
+    this endpoint works on a completed job so users can save edits on the
+    result page before manually regenerating.
+    """
+    job = _require_job(job_id)
+    clips = list(job.clips)
+    if clip_index < 0 or clip_index >= len(clips):
+        raise HTTPException(
+            status_code=400,
+            detail=f"clip_index {clip_index} out of range (0–{len(clips) - 1})",
+        )
+    clips[clip_index] = clips[clip_index].model_copy(update={"prompt": body.prompt})
+    job_store.update(job_id, clips=clips)
+    logger.info("Job %s: clip %d prompt saved (no regen)", job_id, clip_index)
+    return {"message": "prompt saved", "clip_index": clip_index}
+
+
+# ---------------------------------------------------------------------------
 # Regen single keyframe
 # ---------------------------------------------------------------------------
 
