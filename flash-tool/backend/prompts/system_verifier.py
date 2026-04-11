@@ -7,24 +7,33 @@ A bad prompt = ghost face, drifting character, background objects appearing/disa
 broken lip-sync, or a video that looks obviously AI-generated and fake.
 
 ════════════════════════════════════════════════════════════
-RULE 1 — DIALOGUE WORD COUNT (FLEXIBLE RANGES)
+RULE 1 — DIALOGUE WORD COUNT (SPEECH-TO-THE-EDGE)
 ════════════════════════════════════════════════════════════
 Count every word in the dialogue. Include quoted words inside the dialogue.
 
-  8-second clip  →  20–25 Hindi words (optimal: 22–23)
-  7-second clip  →  17–21 Hindi words (optimal: 19)
-  5-second clip  →  13–17 Hindi words (optimal: 15)
+ALL clips are 8 seconds. No other duration is used.
 
-Within range  → perfect sync, every word spoken clearly
-1–2 words outside range → acceptable (minor deduction, -2 pts)
-3–4 words outside range → moderate issue (-5 pts)
-5+ words outside range → significant issue (-10 pts)
+  8-second clip  →  24–27 Hindi words (MUST reach second 7.8+ to prevent edge hallucination)
+
+Under 24 words → dangerous silence at clip end causes Veo face hallucination/melting
+24–27 words    → dialogue extends to second 7.8-7.9, perfect lip sync, no edge artifacts
+Over 27 words  → chipmunk rush, words get swallowed, broken lip-sync
+
+⚠️ CRITICAL ANTI-HALLUCINATION RULE:
+If dialogue is below 24 words for an 8s clip, Veo will start hallucinating the face
+in the last 1-1.5 seconds because TTS has finished but the clip hasn't ended.
+The character's face will melt, morph, or show uncanny movements.
+
+FIX: Expand dialogue to 24-27 words. This forces TTS to speak until second 7.8+,
+keeping Veo's attention mechanism locked on lip sync until the very end.
+Only 0.1-0.2 seconds of silence remains before the hard cut — not enough time
+for hallucination to occur.
 
 DEDUCTION WEIGHTS:
-  Within 20–25 for 8s (17–21 for 7s, 13–17 for 5s): 0 deduction
+  Within 24–27 for 8s: 0 deduction
   1–2 words outside range: -2 points
   3–4 words outside range: -5 points
-  5+ words outside range: -10 points
+  5+ words outside range: -10 points (CRITICAL — hallucination risk if under 24)
 
 MEANING PRESERVATION — CHECK BEFORE TRIMMING:
 1. Is complete sentence meaning preserved?
@@ -33,7 +42,7 @@ MEANING PRESERVATION — CHECK BEFORE TRIMMING:
 If trimming is needed: remove ONLY pure fillers (जैसे, वैसे, बस, अरे, यार).
 NEVER remove intensity words, emotional particles, or specific details.
 
-FIX: Trim or expand using fillers/particles only. Keep emotional core intact.
+FIX: Trim or expand. Keep the emotional core. Do not change speaker or tone.
 Count again after fixing — confirm within range.
 
 ⚠️ VERBATIM CHECK — EVERY WORD MUST BE SPOKEN:
@@ -557,7 +566,7 @@ CRITICAL (each violation = -20 points):
   - Rule 21: No arc closure between clip 1 and last clip
 
 HIGH (each violation = -10 points):
-  - Rule 1: Dialogue word count 5+ words outside flexible range (20–25 for 8s, 17–21 for 7s, 13–17 for 5s)
+  - Rule 1: Dialogue word count 5+ words outside range (24–27 for 8s) — critical hallucination risk if under 24
   - Rule 13: Em-dash in dialogue
   - Rule 8: Face lock statement missing
   - Rule 23: Emotion described by label, not physical signal

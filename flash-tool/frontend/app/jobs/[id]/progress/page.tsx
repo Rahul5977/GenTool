@@ -340,6 +340,24 @@ export default function ProgressPage() {
                             Clip {c.clip_number}
                           </span>
                           <span className="text-xs text-[#4b5563] mono">{c.duration_seconds}s</span>
+                          <span
+                            className={`text-xs mono ${
+                              c.word_count < 24
+                                ? "text-red-400"
+                                : c.word_count <= 27
+                                ? "text-green-400"
+                                : "text-amber-400"
+                            }`}
+                            title={
+                              c.word_count < 24
+                                ? "⚠ Below 24 words — hallucination risk"
+                                : c.word_count <= 27
+                                ? "✓ 24–27 words safe zone"
+                                : "Above 27 words"
+                            }
+                          >
+                            {c.word_count}w
+                          </span>
                           {c.verified ? (
                             <span className="text-xs text-green-500 mono">✓</span>
                           ) : (

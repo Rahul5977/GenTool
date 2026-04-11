@@ -58,18 +58,35 @@ def normalize_clip(
     • Scales to target resolution preserving aspect ratio, pads with black.
     • Forces 24 fps, yuv420p pixel format.
     • H.264 CRF 18, AAC 192 kbps stereo 44.1 kHz.
+    • CRITICAL: Applies 0.2s exponential audio fade-out to prevent ghost pops.
     """
     if aspect_ratio not in _RESOLUTIONS:
         logger.error("normalize_clip: unsupported aspect_ratio %r", aspect_ratio)
         return False
 
     W, H = _RESOLUTIONS[aspect_ratio]
+
+    # Get clip duration to calculate fade-out start time
+    duration = probe_duration(input_path)
+    if duration <= 0:
+        logger.error("normalize_clip: could not probe duration for %s", input_path)
+        return False
+
+    # Fade-out starts 0.2 seconds before clip end
+    fade_start = max(0, duration - 0.2)
+
     vf = (
         f"scale={W}:{H}:force_original_aspect_ratio=decrease,"
         f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,"
         f"fps=24,"
         f"format=yuv420p"
     )
+
+    # Audio filter chain with exponential fade-out:
+    # 1. aresample=async=1 — sync audio to video
+    # 2. afade=t=out:st={fade_start}:d=0.2:curve=exp — exponential fade-out last 0.2s
+    # 3. apad — pad audio if needed
+    af = f"aresample=async=1,afade=t=out:st={fade_start}:d=0.2:curve=exp,apad"
 
     cmd = [
         _ffmpeg(), "-y", "-i", input_path,
@@ -78,7 +95,7 @@ def normalize_clip(
         "-pix_fmt", "yuv420p",
         "-video_track_timescale", "12800",
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
-        "-af", "aresample=async=1,apad",
+        "-af", af,  # CRITICAL FIX: exponential audio fade-out prevents ghost pops
         "-shortest",
         output_path,
     ]

@@ -306,7 +306,28 @@ export default function ReviewPromptsPage() {
                         {clip.scene_summary || `Clip ${clip.clip_number}`}
                       </p>
                       <p className="text-xs text-[#4b5563] mono mt-0.5">
-                        {clip.duration_seconds}s · {clip.word_count} words
+                        {clip.duration_seconds}s ·{" "}
+                        <span
+                          className={
+                            clip.word_count < 24
+                              ? "text-red-400 font-semibold"
+                              : clip.word_count <= 27
+                              ? "text-green-400"
+                              : "text-amber-400"
+                          }
+                          title={
+                            clip.word_count < 24
+                              ? "⚠ Below 24 words — hallucination risk at clip end"
+                              : clip.word_count <= 27
+                              ? "✓ In anti-hallucination safe zone (24–27)"
+                              : "Word count above 27 — may cause chipmunk speech"
+                          }
+                        >
+                          {clip.word_count}w
+                        </span>
+                        {clip.word_count < 24 && (
+                          <span className="text-red-400 ml-1" title="Below 24 words — Veo may hallucinate face at clip end">⚠ hallucination risk</span>
+                        )}
                         {clip.verified && <span className="text-green-500 ml-2">✓ verified</span>}
                         {isDirty && <span className="text-amber-400 ml-2">· unsaved changes</span>}
                         {saved === "saved" && <span className="text-green-400 ml-2">· saved</span>}

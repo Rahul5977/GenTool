@@ -10,12 +10,13 @@ interface Props {
   total: number;
   description: string;
   approved: boolean;
+  validationIssues?: string[];
   onToggleApprove: (index: number, val: boolean) => void;
   onRegenerated: (index: number) => void;
 }
 
 export default function KeyFrameCard({
-  jobId, index, total, description, approved, onToggleApprove, onRegenerated,
+  jobId, index, total, description, approved, validationIssues = [], onToggleApprove, onRegenerated,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +48,9 @@ export default function KeyFrameCard({
   return (
     <div
       className={`relative flex flex-col rounded-xl overflow-hidden border transition-all duration-200 ${
-        approved
+        validationIssues.length > 0
+          ? "border-amber-500/50 shadow-[0_0_16px_rgba(245,158,11,0.08)]"
+          : approved
           ? "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.08)]"
           : "border-[#2a2a2a] hover:border-[#3a3a3a]"
       }`}
@@ -75,6 +78,12 @@ export default function KeyFrameCard({
         <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs bg-black/70 text-[#9ca3af] border border-white/10">
           {index === 0 ? "First frame" : `End clip ${index}`}
         </div>
+        {/* Validation warning badge */}
+        {validationIssues.length > 0 && (
+          <div className="absolute bottom-2 left-2 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg" title={validationIssues.join("\n")}>
+            <span className="text-white text-xs font-bold">!</span>
+          </div>
+        )}
         {/* Approved overlay */}
         {approved && (
           <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
@@ -88,6 +97,16 @@ export default function KeyFrameCard({
         <p className="text-xs text-[#9ca3af] mono leading-relaxed line-clamp-2" title={description}>
           {description || "—"}
         </p>
+
+        {/* Validation issues */}
+        {validationIssues.length > 0 && (
+          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-[10px] text-amber-400 font-semibold mb-1">Quality warnings</p>
+            {validationIssues.map((issue, i) => (
+              <p key={i} className="text-[10px] text-amber-300/80 leading-snug">• {issue}</p>
+            ))}
+          </div>
+        )}
 
         {error && <p className="text-xs text-red-400">{error}</p>}
 

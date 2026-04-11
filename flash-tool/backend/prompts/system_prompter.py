@@ -275,27 +275,36 @@ SECTION 6 — DIALOGUE
 Format exactly as:
   चरित्र: "(बातचीत के लहजे में, [AGE_VOICE] आवाज़ में) [dialogue text]"
 
-WORD COUNT — FLEXIBLE RANGE WITH MEANING PRESERVATION:
-  8-second clip  →  20–25 Hindi words (optimal: 22–23)
-  7-second clip  →  17–21 Hindi words (optimal: 19)
-  5-second clip  →  13–17 Hindi words (optimal: 15)
+WORD COUNT — SPEECH-TO-THE-EDGE TIMING (ANTI-HALLUCINATION):
+  8-second clip  →  24–27 Hindi words (CRITICAL: dialogue must reach second 7.8+)
+
+Why these counts:
+- UNDER 24 words → dangerous silence at clip end causes Veo face hallucination/melting
+- 24–27 words → dialogue extends to second 7.8-7.9, Veo stays locked on lip sync
+- OVER 27 words → chipmunk rush, words get skipped
+
+⚠️ ANTI-HALLUCINATION RULE:
+Veo hallucinates when the character stops speaking before second 7.5.
+The brief silence (0.1-0.2s) before the cut is INTENTIONAL — it's the safe zone.
+
+ALL clips are 8 seconds. No other duration is used.
 
 CRITICAL PRIORITY ORDER:
 1. Preserve complete sentence meaning — NEVER cut mid-thought
 2. Preserve emotional tone and intensity — NEVER dilute core emotion
 3. Keep ALL specific details (product names, numbers, places)
-4. Stay within word count range
-5. Optimize to middle of range if possible
+4. Stay within word count range (24–27)
+5. Optimize to middle of range (25–26) if possible
 
 How to handle edge cases:
-If script dialogue is 26 words for an 8s clip:
-→ Check if removing 1–2 pure fillers preserves meaning
+If script dialogue is 29 words for an 8s clip:
+→ Check if removing 2–3 pure fillers preserves meaning
 → If yes: remove fillers (जैसे, वैसे, बस, अरे, यार)
-→ If no: KEEP all 26 words — slightly faster speech beats lost meaning
+→ If no: KEEP all 29 words — slightly faster speech beats lost meaning
 
-If script dialogue is 19 words for an 8s clip:
-→ KEEP as-is — do NOT pad unnecessarily
-→ 19 words in 8s gives natural pacing with slight pauses
+If script dialogue is 22 words for an 8s clip:
+→ EXPAND by adding natural conversation particles — do NOT keep at 22
+→ Under 24 words risks hallucination at clip end
 
 EMOTION PRESERVATION RULE:
 Intensity words (बहुत, काफी, बेहद, सच में, पूरी तरह) are NOT fillers.
@@ -537,7 +546,7 @@ REALISM RULES — WHAT MAKES IT LOOK REAL, NOT AI
 SELF-CHECK BEFORE OUTPUTTING EACH CLIP
 ════════════════════════════════════════════════════════════════
 Before writing each clip's JSON, verify:
-□ Word count of DIALOGUE: counted, within flexible range (20–25 for 8s, 17–21 for 7s, 13–17 for 5s)? Meaning and emotion preserved? EVERY specific word present?
+□ Word count of DIALOGUE: counted, within 24–27 range for 8s clip? Meaning and emotion preserved? EVERY specific word present? (Under 24 = hallucination risk)
 □ ACRONYMS: every ALL-CAPS abbreviation has hyphens? (PCOS→P-C-O-S, IVF→I-V-F)
 □ ACTION block: ONE emotional state physically described? 1–2 micro-movements?
 □ SETTLE-TO-REST: does ACTION end with "⚠️ आखिरी 1–2 सेकंड: REST POSITION" instruction?
@@ -567,7 +576,7 @@ Return ONLY a JSON array. No markdown. No explanation outside the array.
     "scene_summary": "one sentence describing the emotional beat of this clip",
     "prompt": "FACE LOCK STATEMENT: ...\\n\\nOUTFIT & APPEARANCE: ...\\n\\nLOCATION: ...\\n\\nACTION: ...\\n\\nDIALOGUE: ...\\n\\nAUDIO: ...\\n\\nCAMERA: ...\\n\\nLIGHTING: ...\\n\\nVISUAL FORMAT PROHIBITIONS: ...\\n\\nLAST FRAME: ...",
     "dialogue": "exact dialogue text only (no section label)",
-    "word_count": 22,
+    "word_count": 25,
     "end_emotion": "specific end expression — eyebrow position, mouth state, eye direction, head angle"
   }
 ]

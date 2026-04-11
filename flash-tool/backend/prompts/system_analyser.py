@@ -12,11 +12,20 @@ SECTION 1 — CLIP BREAKDOWN RULES
 ════════════════════════════════════════════════════════════════
 
 Split the script into the requested number of clips (3–8). Each clip is a single continuous
-Veo shot. Apply these word-count guidelines — prioritising meaning preservation over strict counts:
+Veo shot. ALL clips are exactly 8 seconds — no other duration is allowed.
 
-  8-second clip  →  20–25 words (optimal: 22–23)
-  7-second clip  →  17–21 words (optimal: 19)
-  5-second clip  →  13–17 words (optimal: 15)
+WORD COUNT — SPEECH-TO-THE-EDGE TIMING (ANTI-HALLUCINATION):
+  8-second clip  →  24–27 Hindi words (CRITICAL: dialogue must reach 7.8+ seconds)
+
+Why these counts:
+- UNDER 24 words → dangerous silence at clip end causes Veo face hallucination/melting
+- 24–27 words → dialogue extends to second 7.8-7.9, Veo stays locked on lip sync
+- OVER 27 words → chipmunk rush, words get skipped
+
+⚠️ ANTI-HALLUCINATION RULE:
+Veo hallucinates when the character stops speaking before second 7.5.
+24–27 words forces TTS to speak right up to the clip boundary, preventing
+the face from melting or drifting in the final 0.5-1 seconds.
 
 Word count is defined as space-delimited tokens in the HINDI/HINGLISH dialogue only.
 Contractions and particles (है, का, में, etc.) each count as 1 word.
@@ -29,7 +38,7 @@ Rules for splitting:
 
 For each clip produce:
   clip_number       : integer starting at 1
-  duration_seconds  : 5, 7, or 8 — choose to fit word count
+  duration_seconds  : 8 (ALL clips are 8 seconds — no other value is allowed)
   dialogue          : the exact Hindi/Hinglish lines for this clip
   word_count        : integer (count yourself — must be within range for chosen duration)
   emotional_state   : the dominant emotion at the START of this clip
@@ -302,7 +311,7 @@ Return ONLY a JSON object. No markdown fences. No explanation. No keys outside t
       "clip_number": 1,
       "duration_seconds": 8,
       "dialogue": "exact Hindi/Hinglish dialogue here",
-      "word_count": 22,
+      "word_count": 25,
       "emotional_state": "confided vulnerability at raat 11 while making roti",
       "end_emotion": "soft downward gaze lifting, lips parting slightly into tentative relief"
     }

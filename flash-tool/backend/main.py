@@ -278,6 +278,27 @@ async def approve_prompts(job_id: str, body: ApprovePromptsRequest):  # noqa: AR
 
 
 # ---------------------------------------------------------------------------
+# Keyframe metadata (no image bytes — for frontend quality display)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v2/jobs/{job_id}/keyframes")
+async def get_keyframes(job_id: str):
+    """Return keyframe metadata (index, description, approved, validation_issues) without image bytes."""
+    job = _require_job(job_id)
+    return {
+        "keyframes": [
+            {
+                "index": kf.index,
+                "description": kf.description,
+                "approved": kf.approved,
+                "validation_issues": kf.validation_issues,
+            }
+            for kf in job.keyframes
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
 # Approve keyframes
 # ---------------------------------------------------------------------------
 

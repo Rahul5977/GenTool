@@ -229,7 +229,25 @@ export default function ResultPage() {
                           <span className="text-sm font-medium text-white">Clip {i + 1}</span>
                           {clip && (
                             <span className="text-xs text-[#4b5563] mono">
-                              {clip.duration_seconds}s · {clip.word_count}w
+                              {clip.duration_seconds}s ·{" "}
+                              <span
+                                className={
+                                  clip.word_count < 24
+                                    ? "text-red-400 font-semibold"
+                                    : clip.word_count <= 27
+                                    ? "text-green-400"
+                                    : "text-amber-400"
+                                }
+                                title={
+                                  clip.word_count < 24
+                                    ? "⚠ Below 24 words — hallucination risk"
+                                    : clip.word_count <= 27
+                                    ? "✓ Safe zone (24–27 words)"
+                                    : "Above 27 words — may be too fast"
+                                }
+                              >
+                                {clip.word_count}w
+                              </span>
                             </span>
                           )}
                         </div>

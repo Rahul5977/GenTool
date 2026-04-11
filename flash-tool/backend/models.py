@@ -76,6 +76,7 @@ class KeyFrame(BaseModel):
     mime_type: str = "image/jpeg"
     description: str
     approved: bool = False
+    validation_issues: list[str] = []  # populated by validate_keyframe_quality()
 
 
 class VideoJob(BaseModel):

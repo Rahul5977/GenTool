@@ -45,6 +45,103 @@ logger = logging.getLogger(__name__)
 # Public API
 # ---------------------------------------------------------------------------
 
+def validate_keyframe_quality(
+    frame: KeyFrame,
+    prev_frame: Optional[KeyFrame] = None,
+) -> tuple[bool, list[str]]:
+    """Validate keyframe quality before presenting to user.
+
+    Performs automated checks for common hallucination patterns:
+    1. Face detection confidence (is there a clear face?)
+    2. Skin smoothing detection (via edge density analysis)
+    3. Frame similarity check (if prev_frame provided — only expression should change)
+
+    Args:
+        frame:      The keyframe to validate.
+        prev_frame: Optional previous frame for similarity comparison.
+
+    Returns:
+        (is_valid, issues) tuple where:
+        - is_valid: True if frame passes all checks
+        - issues:   List of detected issue descriptions
+    """
+    try:
+        import cv2
+        import numpy as np
+        import base64
+    except ImportError:
+        logger.warning("validate_keyframe_quality: opencv-python not installed — skipping validation")
+        return True, []
+
+    issues: list[str] = []
+
+    # Decode base64 to numpy array
+    img_bytes = base64.b64decode(frame.image_b64)
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return False, ["Failed to decode image"]
+
+    # Check 1: Face detection
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+
+    if len(faces) == 0:
+        issues.append("No face detected — possible generation failure")
+    elif len(faces) > 1:
+        issues.append(f"Multiple faces detected ({len(faces)}) — should be single character")
+
+    # Check 2: Skin smoothing detection via edge density
+    if len(faces) == 1:
+        x, y, w, h = faces[0]
+        face_roi = gray[y:y + h, x:x + w]
+        edges = cv2.Canny(face_roi, 50, 150)
+        edge_density = np.sum(edges > 0) / (w * h)
+        # Natural skin texture: edge_density > 0.15
+        # Smoothed/airbrushed: edge_density < 0.10
+        if edge_density < 0.10:
+            issues.append(
+                f"Low edge density ({edge_density:.3f}) suggests skin smoothing/airbrushing — "
+                f"natural skin texture should show more detail."
+            )
+
+    # Check 3: Frame similarity (only expression should change between frames)
+    if prev_frame is not None:
+        try:
+            from skimage.metrics import structural_similarity as ssim
+        except ImportError:
+            logger.warning("validate_keyframe_quality: scikit-image not installed — skipping similarity check")
+            return len(issues) == 0, issues
+
+        prev_img_bytes = base64.b64decode(prev_frame.image_b64)
+        prev_nparr = np.frombuffer(prev_img_bytes, np.uint8)
+        prev_img = cv2.imdecode(prev_nparr, cv2.IMREAD_COLOR)
+
+        if prev_img is not None:
+            if img.shape != prev_img.shape:
+                prev_img = cv2.resize(prev_img, (img.shape[1], img.shape[0]))
+            gray_curr = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray_prev = cv2.cvtColor(prev_img, cv2.COLOR_BGR2GRAY)
+            similarity, _ = ssim(gray_curr, gray_prev, full=True)
+
+            # Transition frames should be 85-98% similar (only expression changes)
+            if similarity < 0.85:
+                issues.append(
+                    f"Low similarity to previous frame ({similarity:.2%}) suggests face drift or major changes. "
+                    f"Only expression should change, not face structure/outfit/background."
+                )
+            elif similarity > 0.98:
+                issues.append(
+                    f"Very high similarity to previous frame ({similarity:.2%}) suggests expression may not have changed."
+                )
+
+    return len(issues) == 0, issues
+
+
 def generate_keyframes(
     brief: ProductionBrief,
     clips: list[ClipPrompt],
@@ -70,10 +167,17 @@ def generate_keyframes(
     # ── Frame 0: Character reference ──────────────────────────────────────
     logger.info("Phase 3: generating Frame 0 (character reference)")
     frame_0 = _generate_reference_frame(brief, clips)
+
+    is_valid, issues = validate_keyframe_quality(frame_0, prev_frame=None)
+    if not is_valid:
+        logger.warning(
+            "Phase 3: Frame 0 quality issues detected:\n%s\nProceeding, flagging for review.",
+            "\n".join(f"  - {issue}" for issue in issues),
+        )
+        frame_0.validation_issues = issues
+
     keyframes.append(frame_0)
-    logger.info(
-        "Phase 3: Frame 0 ready (%d b64 chars)", len(frame_0.image_b64)
-    )
+    logger.info("Phase 3: Frame 0 ready (%d b64 chars)", len(frame_0.image_b64))
     if on_keyframe:
         on_keyframe(frame_0, total)
 
@@ -91,6 +195,16 @@ def generate_keyframes(
             brief=brief,
             clip=clip,
         )
+
+        is_valid, issues = validate_keyframe_quality(next_frame, prev_frame=keyframes[i])
+        if not is_valid:
+            logger.warning(
+                "Phase 3: Frame %d quality issues detected:\n%s\nProceeding, flagging for review.",
+                frame_index,
+                "\n".join(f"  - {issue}" for issue in issues),
+            )
+            next_frame.validation_issues = issues
+
         keyframes.append(next_frame)
         if on_keyframe:
             on_keyframe(next_frame, total)

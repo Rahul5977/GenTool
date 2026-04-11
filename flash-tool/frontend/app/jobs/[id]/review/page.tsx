@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type JobStatus } from "@/lib/api";
+import { api, type JobStatus, type KeyFrame } from "@/lib/api";
 import KeyFrameCard from "@/components/KeyFrameCard";
 
 export default function ReviewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+  const [keyframeMeta, setKeyframeMeta] = useState<KeyFrame[]>([]);
   const [approved, setApproved] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -17,8 +18,12 @@ export default function ReviewPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const s = await api.getJobStatus(id);
+      const [s, kfResp] = await Promise.all([
+        api.getJobStatus(id),
+        api.getKeyframes(id).catch(() => ({ keyframes: [] as KeyFrame[] })),
+      ]);
       setJobStatus(s);
+      setKeyframeMeta(kfResp.keyframes);
       // Pre-approve all by default
       if (s.num_keyframes > 0) {
         setApproved(new Set([...Array(s.num_keyframes)].map((_, i) => i)));
@@ -40,9 +45,14 @@ export default function ReviewPage() {
     });
   }
 
-  function handleRegenerated(index: number) {
+  async function handleRegenerated(index: number) {
     // Un-approve the regen'd frame so user must re-check
     setApproved((prev) => { const next = new Set(prev); next.delete(index); return next; });
+    // Refresh metadata to pick up new validation_issues after regen
+    try {
+      const kfResp = await api.getKeyframes(id);
+      setKeyframeMeta(kfResp.keyframes);
+    } catch { /* best-effort */ }
   }
 
   async function handleApproveAll() {
@@ -60,6 +70,7 @@ export default function ReviewPage() {
 
   const numFrames = jobStatus?.num_keyframes ?? 0;
   const numClips = numFrames > 0 ? numFrames - 1 : 0;
+  const framesWithIssues = keyframeMeta.filter((kf) => kf.validation_issues.length > 0);
 
   if (loading) {
     return (
@@ -117,6 +128,18 @@ export default function ReviewPage() {
         Regenerate any image that has the wrong expression or background inconsistency.
       </div>
 
+      {/* Validation issues summary */}
+      {framesWithIssues.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          <p className="text-amber-300 font-semibold text-sm mb-1">
+            Quality warnings on {framesWithIssues.length} frame{framesWithIssues.length !== 1 ? "s" : ""}
+          </p>
+          <p className="text-[#9ca3af] text-xs">
+            Frames marked with <span className="text-amber-400 font-bold">!</span> have automated quality issues detected (face detection, skin smoothing, or drift). Review and regenerate if needed before approving.
+          </p>
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           {error}
@@ -161,6 +184,7 @@ export default function ReviewPage() {
                   : `End of clip ${i} → Start of clip ${i + 1}`
               }
               approved={approved.has(i)}
+              validationIssues={keyframeMeta[i]?.validation_issues ?? []}
               onToggleApprove={handleToggle}
               onRegenerated={handleRegenerated}
             />

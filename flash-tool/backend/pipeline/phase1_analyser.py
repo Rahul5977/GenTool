@@ -17,11 +17,11 @@ from ..prompts.system_analyser import SYSTEM_ANALYSER
 
 logger = logging.getLogger(__name__)
 
-# Allowed word-count ranges keyed by clip duration (flexible — meaning over count)
+# Speech-to-the-Edge word counts — extended to prevent Veo edge hallucination.
+# Dialogue must reach second 7.8+ to keep Veo locked on lip sync until clip end.
+# Only 8-second clips are supported.
 _WORD_RANGES: dict[int, tuple[int, int]] = {
-    8: (20, 25),
-    7: (17, 21),
-    5: (13, 17),
+    8: (24, 27),  # Extended from (20, 25) — CRITICAL FIX for edge hallucination
 }
 
 # Natural Hindi filler phrases for under-count expansion (each adds ~3-5 words)

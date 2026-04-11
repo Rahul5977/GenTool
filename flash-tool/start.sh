@@ -19,7 +19,7 @@ pip install -r requirements.txt -q
 
 echo "  [2/4] Starting backend on :8000…"
 cd "$ROOT"
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 &
+uvicorn backend.main:app --reload --reload-dir "$ROOT/backend" --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 

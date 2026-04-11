@@ -1,101 +1,120 @@
 SYSTEM_IMAGER = """
 You are the Keyframe Transition Architect for SuperLiving's video ad pipeline.
 
-You receive:
-  1. The previous clip's LAST FRAME image (as a base64 image input)
-  2. The target end_emotion for that frame (a specific expression description)
-  3. The character spec (outfit, appearance, skin tone, accessories)
-  4. The locked background description
-
 Your job: generate a new image that is IDENTICAL to the input image in every way
 EXCEPT the character's facial expression, which must transition to the target end_emotion.
 
-This output image will be used as the reference/first-frame image for Veo video generation
-of the next clip. It must be photorealistic, consistent, and pass Veo's image conditioning.
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WHAT TO CHANGE — ONLY THE EXPRESSION
+CRITICAL QUALITY REQUIREMENTS (ZERO TOLERANCE FOR DRIFT)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CHANGE: The character's facial expression to match end_emotion exactly.
-  • Target the specific muscle groups described in end_emotion
-  • If end_emotion says "soft smile, left lip corner raised 2mm" — render that precisely
-  • If end_emotion says "eyes 80% open, slight upward gaze" — render that precisely
-  • Expression change should feel like a photograph taken 1 second after the last frame
-  • Mouth should be closed or just closing (character has just finished speaking)
+IDENTITY PRESERVATION — FORENSIC-LEVEL MATCHING:
+This is the EXACT SAME PERSON as the input image. Not a similar-looking person.
+Not a different person with the same outfit. Not "close enough." EXACT MATCH.
+
+Before finalizing output, verify these forensic identity markers:
+□ Face structure: identical bone structure, jawline, chin shape, face width
+□ Nose: identical shape, nostril width, bridge height, tip angle
+□ Eyes: identical shape, size, spacing, eyelid fold type, iris color
+□ Eyebrows: identical thickness, arch, length, hair density
+□ Lips: identical thickness, cupid's bow shape, corner position
+□ Ears: if visible, identical shape and position
+□ Face proportions: identical eye-to-nose, nose-to-mouth distances
+
+If ANY of these markers differ → this is a DIFFERENT PERSON → REJECT output.
+
+SKIN TEXTURE PRESERVATION — PIXEL-LEVEL FIDELITY:
+The input image has natural skin texture with visible pores. This MUST be preserved.
+
+□ Visible pores: same size, same distribution, same density across face
+□ Natural marks: any moles, freckles, kajal smudges MUST be in EXACT same positions
+□ Skin tone: identical hex color value, identical warmth/coolness
+□ Texture quality: if input has visible pores, output MUST have visible pores
+□ NO smoothing: if output skin looks smoother/softer than input → REJECT
+
+CRITICAL: If the input image shows natural skin texture and the output looks
+airbrushed or smoothed, this is a FAILED edit. The whole point is EXPRESSION-ONLY
+changes. Skin texture is NOT an expression — it must stay identical.
+
+HAIR PRESERVATION — STRAND-LEVEL ACCURACY:
+Every single strand of hair must be in the same position.
+
+□ Parting: identical position (not shifted 1cm left/right)
+□ Stray strands: if input has 3 strands across forehead → output has same 3 strands
+□ Hair volume: identical fullness, NOT fluffier or flatter
+□ Hairline: identical shape and position
+□ Length: if input shows hair to shoulders → output shows hair to shoulders
+
+OUTFIT PRESERVATION — FABRIC-LEVEL FIDELITY:
+Every crease, drape, and fold must be identical.
+
+□ Garment position: if input shows dupatta on left shoulder → output identical
+□ Creases: specific ironing creases in EXACT same positions
+□ Fabric drape: identical hang and fold patterns
+□ Colors: identical fabric color (not lighter/darker shade)
+□ Accessories: bindi, earrings, bangles, mangalsutra in EXACT same positions
+
+BACKGROUND PRESERVATION — OBJECT-LEVEL INVENTORY:
+Every single object must be in the exact same position with identical color.
+
+□ Object positions: if input shows 5 books on upper shelf → output shows 5 books on upper shelf
+□ Object colors: if input has a red mug → output has a red mug (not pink, not orange)
+□ Lighting: identical direction, identical intensity, identical color temperature
+□ Wall texture: identical color and pattern
+□ NO new objects added, NO objects removed, NO objects moved
+
+CAMERA PRESERVATION — FRAME-LEVEL CONSISTENCY:
+□ Framing: TIGHT MCU — chin to mid-chest, eye-level
+□ Character size: identical proportion of frame (not 5% larger/smaller)
+□ Head position: identical tilt, identical height in frame
+□ Distance: identical camera-to-subject distance (no zoom in/out)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WHAT MUST REMAIN IDENTICAL — NEVER CHANGE THESE
+WHAT TO CHANGE — EXPRESSION MUSCLES ONLY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-IDENTITY — SAME PERSON, NOT SIMILAR-LOOKING PERSON:
-This is the same individual as the input image. Not a lookalike. Not a similar type.
-The EXACT same person. If it looks like a different person — regenerate.
+CHANGE ONLY these specific muscle groups:
 
-FACE STRUCTURE: bone structure, nose shape, lip thickness, ear shape, eye shape,
-eyebrow shape and thickness, face width, jawline, chin shape.
-Any deviation in face structure will break character consistency across the ad.
+Forehead muscles (frontalis): eyebrow position, forehead wrinkles
+Eye muscles (orbicularis oculi): eye openness (70–100%), crow's feet, upper eyelid
+Cheek muscles (zygomaticus): cheek lift, under-eye tension
+Mouth muscles (orbicularis oris, risorius): lip corner position, lip parting, mouth shape
+Jaw muscles (masseter): jaw tension, jaw position
 
-SKIN: tone (#HEX from spec), texture (visible pores, natural imperfections — DO NOT
-smooth or beautify skin, preserve every pore and mark), any moles or marks at their
-exact locations, any kajal smudge — all unchanged.
+Target expression: {end_emotion}
 
-HAIR: same style, same parting, same looseness, same sheen.
-DO NOT change the hair — every strand must be in the same position.
-Same stray strands framing the face in the same positions.
-
-OUTFIT: identical garment, identical color, identical pattern, identical fit.
-Same drape of dupatta. Same safety pin position. Same ironing creases.
-
-ACCESSORIES: every item at identical position — bindi (size, color, position),
-bangles (which wrist, how many, what color), mangalsutra (length, where it falls),
-earrings (style, which ear visible), nose ring if present.
-
-CAMERA FRAME: TIGHT MCU — chin to mid-chest, eye-level. Same crop. Same framing.
-The subject occupies the same proportion of the frame.
-
-BACKGROUND: every single object in exact same position with identical color.
-No new objects. No removed objects. No lighting shift in the background.
-DO NOT change the background — identical object positions and colors.
-
-LIGHTING: same direction (45° warm side-fill, consistent side across clips),
-same color temperature, same secondary ambient fill from overhead.
-Eye sockets clearly lit — no dark shadows.
-
-HEAD POSITION: same tilt, same turn, same height in frame. Only expression changes.
-
-EYE NATURALNESS: soft focus on camera lens, natural blink position (eyes 70-80% open
-for neutral/resting states), not wide-open robotic stare, not glazed unfocused.
+CRITICAL: Change ONLY the muscles needed to achieve the target expression.
+The expression change should feel like a photograph taken 0.5 seconds after the input image.
+The character has just finished speaking, so mouth should be closed or just closing.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TECHNICAL REQUIREMENTS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Output format  : 9:16 vertical portrait (1080 × 1920)
-Style          : photorealistic, not illustrated, not painterly, not stylized
-Skin rendering : visible pores, natural micro-texture, no airbrushing, no smoothing
-No text        : no subtitles, no watermarks, no UI overlays
-No letterbox   : frame must be full edge-to-edge, no black bars
-Lighting       : cinematic contrast but not dramatic — warm and natural
-Quality        : ultra-sharp focus, 8k equivalent detail
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ANTI-DRIFT QUALITY CHECKS
+ANTI-DRIFT QUALITY CHECKLIST (RUN BEFORE OUTPUT)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Before finalizing output, verify:
-□ Is this the SAME PERSON as the input? (not similar-looking — same person)
+□ Is this the SAME PERSON as input? (not similar-looking — same person)
 □ Is skin texture unchanged? (pores, marks, kajal in same positions)
 □ Is hair unchanged? (every strand, every stray hair, same parting)
 □ Is outfit unchanged? (every crease, drape, safety pin position)
 □ Are all accessories present? (bindi, bangles, mangalsutra — exact positions)
 □ Is background unchanged? (every object, every position, no new objects)
 □ Is head position unchanged? (only expression changed)
-□ Are eye sockets lit? (no dark shadows)
-□ Are eyes natural? (not robotic wide-open, not glazed)
+□ Are eye sockets lit? (no dark shadows — lighting same as input)
+□ Are eyes natural? (not robotic wide-open, not glazed — same naturalness as input)
 
-If it looks like a different person — regenerate.
-If skin has been airbrushed or smoothed — regenerate.
+If ANY checkbox fails → REJECT output and regenerate.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TECHNICAL OUTPUT SPECIFICATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Output format: 9:16 vertical portrait (1080 × 1920)
+Style: photorealistic (NOT illustrated, NOT painterly, NOT stylized)
+Skin rendering: preserve exact texture from input (visible pores if input has them)
+Lighting: identical to input (same direction, intensity, color temperature)
+Focus: ultra-sharp on face, same depth of field as input
+Quality: 8k equivalent detail, NO compression artifacts
+NO text overlays, NO watermarks, NO UI elements, NO black bars
 """.strip()
 
 
@@ -128,55 +147,70 @@ def build_imagen_prompt(
         else "person"
     )
     return (
-        # ── Background first — Imagen must anchor on this before generating the subject ──
-        f"MANDATORY BACKGROUND (copy exactly — do NOT substitute or simplify): "
-        f"{locked_background} "
-        f"The background described above is LOCKED. Render it precisely. "
-        f"Do not replace with a plain wall, studio backdrop, or any other setting. "
-
-        # ── Subject ──
-        f"Hyper-realistic smartphone photo of an everyday Indian {gender_word}. "
+        # Core subject
+        f"Unretouched smartphone selfie of a real Indian {gender_word} at home. "
+        f"NOT a professional photo. NOT a model. NOT studio-lit. "
         f"{physical_baseline}. Wearing {outfit}. "
 
-        # ── Hands strictly off frame ──
+        # Camera and lighting realism (prevents "perfect" renders)
+        f"Shot on a mid-range Android phone (not iPhone): "
+        f"slight overexposure on one side creating a natural hotspot, "
+        f"uneven lighting from a single overhead tube light or window, "
+        f"no ring light, no softbox, no professional lighting equipment, "
+        f"natural grain and slight digital noise visible in shadows, "
+        f"minor lens distortion typical of smartphone front cameras. "
+
+        # Body type anti-aspiration (prevents model-like renders)
+        f"Build: average everyday Indian body — NOT gym-fit, NOT model-proportioned, "
+        f"NOT aspirational fitness-influencer physique. Ordinary, relatable build "
+        f"that looks like a real person from Raipur, Patna, or Kanpur. "
+
+        # Skin tone and texture (TRIPLE-LAYER anti-smoothing)
+        f"Skin tone: warm brown to medium brown (#8B6F47 to #A0826D range) — "
+        f"NOT fair/light-skinned (#C8AD8D or lighter), NOT model-complexion. "
+        f"CRITICAL SKIN TEXTURE REQUIREMENTS (non-negotiable): "
+        f"(1) Visible skin pores throughout face — zoom-level detail, not blurred away. "
+        f"(2) Natural skin micro-texture with slight unevenness — NOT airbrushed smooth. "
+        f"(3) Any natural marks, slight redness, or kajal smudges MUST be preserved. "
+        f"(4) NO beauty mode processing. NO skin smoothing filter. NO blemish removal. "
+        f"(5) NO Instagram-style soft-focus glow. NO makeup-ad perfect skin. "
+        f"The face must look like a real person's skin when you zoom in, "
+        f"with all the natural texture and imperfections intact. "
+
+        # Hair and clothing realism
+        f"Hair: naturally styled at home, NOT salon-done, NOT perfectly set. "
+        f"A few stray strands across forehead or cheeks. Natural parting, not styled for a photoshoot. "
+        f"Clothing: looks lived-in and worn, NOT brand new, NOT freshly ironed. "
+        f"Slight creases from wearing throughout the day. Authentic home-wear texture. "
+
+        # Expression and demeanor
+        f"Expression: {opening_emotion}. "
+        f"Direct eye contact with the camera lens — like someone about to record "
+        f"a personal video message to a close friend, NOT posing for a professional portrait. "
+        f"Slight self-consciousness in the eyes or jaw tension suggesting they're about "
+        f"to share something real and vulnerable, NOT performing for an audience. "
+        f"NOT smiling for a photo op. NOT Instagram-ready pose. Just present, honest, unfiltered. "
+
+        # Background
+        f"Background: {locked_background} "
+        f"This is a real Tier 2-3 Indian home, NOT a modern metro apartment. "
+        f"Slightly worn walls, simple furniture, ordinary lighting. "
+
+        # Camera and framing
         f"HANDS AND ARMS: completely outside the frame — NOT VISIBLE at all. "
-        f"No hands, no forearms, no wrists in frame. "
-        f"The crop ends at mid-chest; anything below that is cut off. "
-
-        # ── Camera and framing ──
         f"Tight medium close-up shot (TIGHT MCU): chin to mid-chest only, eye-level, camera absolutely still. "
-        f"Subject fills 70–80% of the frame vertically. "
+        f"Subject fills 70-80% of the frame vertically. "
 
-        # ── Technical / capture style ──
-        f"Shot on an ordinary mid-range Android smartphone: slight overexposure on one side, "
-        f"no ring light, no softbox, no studio lighting setup, natural slightly uneven exposure. "
-        f"Skin tone: warm brown to medium brown — NOT fair, NOT light-skinned, NOT model-complexion. "
-        f"Build: average, ordinary — NOT gym-fit, NOT model-thin, NOT aspirational. "
-        f"Ultra-realistic skin texture with visible pores, no airbrushing, no beauty mode, no skin smoothing filter. "
+        # Final quality markers
+        f"Overall aesthetic: looks exactly like a high-trust UGC video screenshot — "
+        f"the kind a real person would record at home to share their story. "
+        f"NOT a professional advertisement. NOT a beauty/fashion shoot. "
+        f"NOT AI-generated-looking perfection. Real, unpolished, authentic human presence. "
 
-        # ── Expression ──
-        f"Expression: direct, slightly self-conscious eye contact with the camera lens — like "
-        f"someone about to say something personal to a close friend, not performing for an audience. "
-        f"Slight tension in the jaw or eyes suggesting they are about to share something real. "
-        f"NOT smiling for a photo. NOT posing. Just present and honest. "
-        f"Opening emotional state: {opening_emotion}. "
-
-        # ── Authenticity ──
-        f"Clothing looks lived-in, not brand new. Hair naturally styled at home, not salon-done. "
-        f"Looks authentically like their stated occupation and life stage — "
-        f"a housewife looks like she has been home all day, "
-        f"an office worker looks like they just finished a long shift, "
-        f"a student looks like they haven't slept enough. "
-        f"Completely unretouched. Looks like a real person recording a UGC video at home. "
-
-        # ── Format ──
-        f"Format: 9:16 vertical portrait (1080×1920). Full frame edge to edge — no black bars, "
-        f"no letterbox, no UI overlays, no subtitles, no watermarks. "
-        f"Photorealistic, not illustrated. Skin has natural variation and imperfection. "
-        f"Lighting: warm soft side-fill from the left (45°), secondary overhead ambient "
-        f"fill to eliminate eye-socket shadows. Eyes clearly visible and sharp. "
-        f"Cinematic contrast but warm and approachable — not harsh, not dramatic. "
-        f"Ultra-sharp focus, 8k detail equivalent."
+        # Technical output specs
+        f"Output format: 9:16 vertical portrait (1080x1920), photorealistic rendering, "
+        f"ultra-sharp focus on face with natural depth of field blur in background. "
+        f"NO text, NO watermarks, NO UI elements, NO black letterbox bars."
     )
 
 
