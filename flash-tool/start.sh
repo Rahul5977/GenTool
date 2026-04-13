@@ -15,11 +15,28 @@ if [ ! -f .env ]; then
   cp .env.example .env
   echo "  ⚠  Created backend/.env from .env.example — add your GOOGLE_API_KEY"
 fi
-pip install -r requirements.txt -q
+if ! python3 -m pip install -r requirements.txt -q; then
+  echo "  ⚠  Dependency install failed; attempting httpx metadata cleanup…"
+  STALE_HTTPX_DIST="$(python3 - <<'PY'
+import importlib.metadata as m
+for d in m.distributions():
+    path = str(getattr(d, "_path", ""))
+    name = (d.metadata.get("Name") or "").strip().lower()
+    mv = (d.metadata.get("Metadata-Version") or "").strip()
+    if "httpx-" in path and ".dist-info" in path and (not name or not mv):
+        print(path)
+        break
+PY
+)"
+  if [ -n "$STALE_HTTPX_DIST" ] && [ -d "$STALE_HTTPX_DIST" ]; then
+    rm -rf "$STALE_HTTPX_DIST"
+  fi
+  python3 -m pip install -r requirements.txt -q
+fi
 
 echo "  [2/4] Starting backend on :8000…"
 cd "$ROOT"
-uvicorn backend.main:app --reload --reload-dir "$ROOT/backend" --host 0.0.0.0 --port 8000 &
+uvicorn backend.main:app --reload --reload-dir "$ROOT/backend" --host 0.0.0.0 --port 8020 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 
@@ -27,7 +44,7 @@ echo "  Backend PID: $BACKEND_PID"
 echo "  [3/4] Installing frontend dependencies…"
 cd "$ROOT/frontend"
 if [ ! -f .env.local ]; then
-  echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+  echo "NEXT_PUBLIC_API_URL=http://localhost:8020" > .env.local
   echo "  Created frontend/.env.local"
 fi
 npm install --silent
@@ -40,9 +57,9 @@ echo "  Frontend PID: $FRONTEND_PID"
 # ── Info ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "  ─────────────────────────────────────────"
-echo "  Backend  →  http://localhost:8000"
+echo "  Backend  →  http://localhost:8020"
 echo "  Frontend →  http://localhost:3000"
-echo "  API docs →  http://localhost:8000/docs"
+echo "  API docs →  http://localhost:8020/docs"
 echo "  ─────────────────────────────────────────"
 echo ""
 echo "  Press Ctrl+C to stop both servers."

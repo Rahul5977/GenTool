@@ -222,9 +222,25 @@ def generate_single_clip(
 def _is_transient(exc: Exception) -> bool:
     """Return True for errors that may resolve on retry (503, timeout, etc.)."""
     msg = str(exc).lower()
-    transient_signals = ("503", "429", "timeout", "timed out", "temporarily unavailable",
-                         "service unavailable", "unavailable", "high demand",
-                         "connection", "reset by peer", "overloaded")
+    transient_signals = (
+        "503",
+        "429",
+        "timeout",
+        "timed out",
+        "temporarily unavailable",
+        "service unavailable",
+        "unavailable",
+        "high demand",
+        "connection",
+        "reset by peer",
+        "overloaded",
+        # Veo occasionally returns code 13 for backend/internal errors.
+        # These are usually transient and should be retried.
+        "internal server issue",
+        "video generation failed due to an internal server issue",
+        "code': 13",
+        "code\": 13",
+    )
     return any(s in msg for s in transient_signals)
 
 
