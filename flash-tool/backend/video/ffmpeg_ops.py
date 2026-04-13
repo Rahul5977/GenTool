@@ -99,12 +99,6 @@ def normalize_clip(
         f"format=yuv420p"
     )
 
-    # Audio filter: sync, optional fade-out, then pad for clean concat.
-    if add_audio_fade:
-        af = f"aresample=async=1,afade=t=out:st={fade_start}:d=0.2:curve=exp,apad"
-    else:
-        af = "aresample=async=1,apad"
-
     cmd = [
         _ffmpeg(), "-y", "-i", input_path,
         "-t", str(target_duration),  # SURGICAL TRIM: hard-stop at 7.7s
@@ -115,8 +109,11 @@ def normalize_clip(
         "-color_trc", "bt709",
         "-colorspace", "bt709",
         "-video_track_timescale", "12800",
+        # Noise reduction: highpass removes room rumble below 80Hz,
+        # afftdn removes broadband ambient hum Veo bakes into generated clips.
+        # loudnorm is applied separately in phase5_stitcher.py — do not add here.
+        "-af", "highpass=f=80,afftdn=nf=-25",
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
-        "-af", af,
         "-shortest",
         output_path,
     ]

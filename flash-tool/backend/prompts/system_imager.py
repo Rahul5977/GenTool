@@ -94,6 +94,9 @@ ANTI-DRIFT QUALITY CHECKLIST (RUN BEFORE OUTPUT)
 Before finalizing output, verify:
 □ Is this the SAME PERSON as input? (not similar-looking — same person)
 □ Is skin texture unchanged? (pores, marks, kajal in same positions)
+□ Is skin tone identical to input? (NOT lighter, NOT smoother, NOT beautified)
+□ Are dark circles under the eyes still visible?
+□ Are all moles and marks still present at same positions?
 □ Is hair unchanged? (every strand, every stray hair, same parting)
 □ Is outfit unchanged? (every crease, drape, safety pin position)
 □ Are all accessories present? (bindi, bangles, mangalsutra — exact positions)
@@ -147,70 +150,41 @@ def build_imagen_prompt(
         else "person"
     )
     return (
-        # Core subject
-        f"Unretouched smartphone selfie of a real Indian {gender_word} at home. "
-        f"NOT a professional photo. NOT a model. NOT studio-lit. "
-        f"{physical_baseline}. Wearing {outfit}. "
-
-        # Camera and lighting realism (prevents "perfect" renders)
-        f"Shot on a mid-range Android phone (not iPhone): "
-        f"slight overexposure on one side creating a natural hotspot, "
-        f"uneven lighting from a single overhead tube light or window, "
-        f"no ring light, no softbox, no professional lighting equipment, "
-        f"natural grain and slight digital noise visible in shadows, "
-        f"minor lens distortion typical of smartphone front cameras. "
-
-        # Body type anti-aspiration (prevents model-like renders)
-        f"Build: average everyday Indian body — NOT gym-fit, NOT model-proportioned, "
-        f"NOT aspirational fitness-influencer physique. Ordinary, relatable build "
-        f"that looks like a real person from Raipur, Patna, or Kanpur. "
-
-        # Skin tone and texture (TRIPLE-LAYER anti-smoothing)
-        f"Skin tone: warm brown to medium brown (#8B6F47 to #A0826D range) — "
-        f"NOT fair/light-skinned (#C8AD8D or lighter), NOT model-complexion. "
-        f"CRITICAL SKIN TEXTURE REQUIREMENTS (non-negotiable): "
-        f"(1) Visible skin pores throughout face — zoom-level detail, not blurred away. "
-        f"(2) Natural skin micro-texture with slight unevenness — NOT airbrushed smooth. "
-        f"(3) Any natural marks, slight redness, or kajal smudges MUST be preserved. "
-        f"(4) NO beauty mode processing. NO skin smoothing filter. NO blemish removal. "
-        f"(5) NO Instagram-style soft-focus glow. NO makeup-ad perfect skin. "
-        f"The face must look like a real person's skin when you zoom in, "
-        f"with all the natural texture and imperfections intact. "
-
-        # Hair and clothing realism
-        f"Hair: naturally styled at home, NOT salon-done, NOT perfectly set. "
-        f"A few stray strands across forehead or cheeks. Natural parting, not styled for a photoshoot. "
-        f"Clothing: looks lived-in and worn, NOT brand new, NOT freshly ironed. "
-        f"Slight creases from wearing throughout the day. Authentic home-wear texture. "
-
-        # Expression and demeanor
-        f"Expression: {opening_emotion}. "
-        f"Direct eye contact with the camera lens — like someone about to record "
-        f"a personal video message to a close friend, NOT posing for a professional portrait. "
-        f"Slight self-consciousness in the eyes or jaw tension suggesting they're about "
-        f"to share something real and vulnerable, NOT performing for an audience. "
-        f"NOT smiling for a photo op. NOT Instagram-ready pose. Just present, honest, unfiltered. "
-
-        # Background
-        f"Background: {locked_background} "
-        f"This is a real Tier 2-3 Indian home, NOT a modern metro apartment. "
-        f"Slightly worn walls, simple furniture, ordinary lighting. "
-
-        # Camera and framing
-        f"HANDS AND ARMS: completely outside the frame — NOT VISIBLE at all. "
-        f"Tight medium close-up shot (TIGHT MCU): chin to mid-chest only, eye-level, camera absolutely still. "
-        f"Subject fills 70-80% of the frame vertically. "
-
-        # Final quality markers
-        f"Overall aesthetic: looks exactly like a high-trust UGC video screenshot — "
-        f"the kind a real person would record at home to share their story. "
-        f"NOT a professional advertisement. NOT a beauty/fashion shoot. "
-        f"NOT AI-generated-looking perfection. Real, unpolished, authentic human presence. "
-
-        # Technical output specs
-        f"Output format: 9:16 vertical portrait (1080x1920), photorealistic rendering, "
-        f"ultra-sharp focus on face with natural depth of field blur in background. "
-        f"NO text, NO watermarks, NO UI elements, NO black letterbox bars."
+        f"SCENE: {locked_background} "
+        f"Every object described in this scene must be visible in the background "
+        f"behind the subject. The background is the primary environment — render it fully. "
+        f"\n\n"
+        f"SUBJECT: Hyper-realistic smartphone photo of an everyday Indian {gender_word} "
+        f"seated in the foreground of this scene, facing camera directly. "
+        f"{physical_baseline}. "
+        f"Wearing {outfit}. "
+        f"\n\n"
+        f"DEPTH OF FIELD: The subject is in sharp focus. The background is slightly "
+        f"out of focus — natural smartphone depth of field, background softly blurred "
+        f"but all objects still identifiable. Subject is NOT pressed against the wall — "
+        f"there is visible distance between subject and background (approx 1.5 to 2 metres). "
+        f"\n\n"
+        f"CAMERA & REALISM: Shot on an ordinary mid-range Android smartphone. "
+        f"Slight overexposure on one side, no ring light, no softbox, no studio lighting. "
+        f"Natural slightly uneven exposure from the single tube light overhead. "
+        f"Skin tone: warm brown to medium brown — NOT fair, NOT light-skinned, NOT model-complexion. "
+        f"Build: average, ordinary — NOT gym-fit, NOT model-thin, NOT aspirational. "
+        f"Ultra-realistic skin texture with visible pores, no airbrushing, no beauty mode, "
+        f"no skin smoothing filter. "
+        f"Clothing looks lived-in, not brand new. Hair naturally styled at home, not salon-done. "
+        f"FRAMING: The character fills approximately 60–70% of the frame height. "
+        f"The top of the frame shows a few centimetres of space above the head. "
+        f"The bottom of the frame shows mid-chest. "
+        f"The sides of the frame show a few centimetres of room on each side of the shoulders. "
+        f"This is a TIGHT MCU — NOT a close-up filling 100% of the frame. "
+        f"\n\n"
+        f"EXPRESSION: Direct, slightly self-conscious eye contact with the camera lens. "
+        f"Like someone about to say something personal to a close friend. "
+        f"NOT smiling for a photo. NOT posing. Just present and honest. "
+        f"Opening emotional state: {opening_emotion}. "
+        f"\n\n"
+        f"OUTPUT: 9:16 portrait, full-frame, photorealistic, no text, no subtitles, "
+        f"no watermarks, no border."
     )
 
 
@@ -248,12 +222,21 @@ def build_transition_frame_prompt(
         f"Mouth should be closed or just closing — the speaking is done.\n\n"
         f"KEEP EVERYTHING ELSE PIXEL-PERFECT IDENTICAL:\n"
         f"  — Face structure, bone structure, skin texture, all moles and marks\n"
-        f"  — Skin tone (preserve pores and natural texture — DO NOT smooth or beautify)\n"
+        f"  — SKIN TONE ENFORCEMENT (CRITICAL): The subject has medium wheatish brown skin.\n"
+        f"    DO NOT lighten the skin tone even by 1%.\n"
+        f"    DO NOT apply skin smoothing, beauty filter, or airbrushing.\n"
+        f"    DO NOT increase brightness on the face.\n"
+        f"    DO NOT reduce visibility of pores, dark circles, moles, or natural marks.\n"
+        f"    The output skin must be identical in darkness, texture, and imperfections\n"
+        f"    to the input image. If output skin looks lighter or smoother → REGENERATE.\n"
         f"  — Hair: DO NOT change the hair — every strand in same position\n"
         f"  — Outfit: identical garment, identical color, identical drape\n"
         f"  — Accessories: every item at identical position\n"
         f"  — Background: every object in every exact position — DO NOT change background\n"
         f"  — Camera framing: TIGHT MCU, chin to mid-chest, eye-level\n"
+        f"  — Camera distance: identical to input image — same amount of room visible "
+        f"around the subject. Do NOT zoom in. Do NOT bring the face closer to camera. "
+        f"The character should occupy the same proportion of the frame as in the input.\n"
         f"  — Hands/arms: completely out of frame — NOT VISIBLE (same as input image)\n"
         f"  — Lighting: same direction, same temperature, same shadow fill\n"
         f"  — Head position: same tilt and turn — ONLY the expression changes\n"
@@ -261,7 +244,8 @@ def build_transition_frame_prompt(
         f"not wide-open robotic stare\n\n"
         f"This is the SAME PERSON as the input image — not a similar-looking person. "
         f"If it looks like a different person, regenerate.\n\n"
-        f"Output: 9:16 portrait, photorealistic, full-frame, no text, no overlays."
+        f"Output: 9:16 portrait, photorealistic, full-frame, no text, no overlays. "
+        f"Same camera distance and framing as input image — do not zoom in or reframe."
     )
 
 
@@ -271,17 +255,28 @@ def build_transition_frame_prompt(
 # ─────────────────────────────────────────────────────────────────────────────
 
 IMAGEN_PROMPT_TEMPLATE = """
-Hyper-realistic smartphone photo of an everyday Indian woman/men, age {age}, {skin_tone} skin (hex {skin_hex}),
+SCENE: {locked_background}
+Every object described in this scene must be visible in the background behind the subject.
+The background is the primary environment — render it fully.
+
+SUBJECT: Hyper-realistic smartphone photo of an everyday Indian woman/men, age {age}, {skin_tone} skin (hex {skin_hex}),
 {face_shape} face. {hair}.
 Wearing: {outfit}.
 Accessories: {accessories_str}.
 Distinguishing marks: {marks_str}.
 
-Shot on an ordinary mid-range Android smartphone: slight overexposure on one side, no ring light,
+DEPTH OF FIELD: The subject is in sharp focus. The background is slightly out of focus — natural smartphone depth of field,
+background softly blurred but all objects still identifiable. Subject is NOT pressed against the wall — there is visible distance
+between subject and background (approx 1.5 to 2 metres).
+
+CAMERA & REALISM: Shot on an ordinary mid-range Android smartphone: slight overexposure on one side, no ring light,
 no softbox, no studio lighting setup, natural slightly uneven exposure.
 Skin tone: warm brown to medium brown — NOT fair, NOT light-skinned, NOT model-complexion.
 Build: average, ordinary — NOT gym-fit, NOT model-thin, NOT aspirational.
 Ultra-realistic skin texture with visible pores, no airbrushing, no beauty mode, no skin smoothing filter.
+FRAMING: The character fills approximately 60–70% of the frame height. The top of the frame shows a few centimetres of
+space above the head. The bottom of the frame shows mid-chest. The sides of the frame show a few centimetres of room
+on each side of the shoulders. This is a TIGHT MCU — NOT a close-up filling 100% of the frame.
 
 Expression: direct, slightly self-conscious eye contact with the camera lens — like someone about to say
 something personal to a close friend, not performing for an audience.
@@ -293,8 +288,6 @@ a housewife looks like she has been home all day,
 an office worker looks like they just finished a long shift,
 a student looks like they haven't slept enough.
 Completely unretouched. Looks like a real person recording a UGC video at home.
-
-Setting: {locked_background}
 
 Camera: TIGHT MCU — chin to mid-chest only. Eye-level. The subject's hands and arms
 are entirely outside the frame. Subject fills 70–80% of the frame vertically.
