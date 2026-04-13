@@ -9,6 +9,7 @@ import time
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from . import config
@@ -33,12 +34,17 @@ from .pipeline.orchestrator import (
 )
 from .pipeline.phase3_imager import regenerate_single_keyframe
 from .pipeline.phase4_generator import generate_single_clip
+from .pipeline.phase5_stitcher import stitch_and_finalize
 from .models import KeyFrame
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Flash Tool API", version="2.0.0")
+
+
+class RestitchRequest(BaseModel):
+    clip_indices: list[int] | None = None
 
 
 @app.on_event("startup")
@@ -468,6 +474,55 @@ async def regen_clip(job_id: str, body: RegenClipRequest):
 
     clip_url = f"/api/v2/video/{job_id}/clip_{clip.clip_number:02d}.mp4"
     return {"clip_url": clip_url}
+
+
+@app.post("/api/v2/jobs/{job_id}/restitch")
+async def restitch(job_id: str, body: RestitchRequest):
+    """Re-stitch existing clip_paths into a fresh final video output."""
+    job = _require_job(job_id)
+    if job.status not in (JobStatus.DONE, JobStatus.GENERATING):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can only restitch when job is done or generating (current: {job.status})",
+        )
+
+    clip_paths = list(job.clip_paths)
+    if not clip_paths:
+        raise HTTPException(status_code=409, detail="No clip paths available for restitch")
+
+    missing = [p for p in clip_paths if not p or not os.path.isfile(p)]
+    if missing:
+        raise HTTPException(status_code=409, detail="One or more clip files are missing on disk")
+
+    out_dir = os.path.join(config.TMP_DIR, job_id)
+    os.makedirs(out_dir, exist_ok=True)
+    output_path = os.path.join(config.TMP_DIR, job_id, f"final_{int(time.time())}.mp4")
+
+    prev_status = job.status
+    job_store.update(job_id, status=JobStatus.STITCHING, error="")
+
+    try:
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: stitch_and_finalize(
+                clip_paths=clip_paths,
+                cta_path=config.CTA_ASSET_PATH,
+                output_path=output_path,
+                aspect_ratio=job.aspect_ratio,
+            ),
+        )
+    except Exception as exc:
+        logger.exception(
+            "Job %s restitch failed (clip_indices=%s)",
+            job_id,
+            body.clip_indices if body.clip_indices else [],
+        )
+        job_store.update(job_id, status=prev_status, error=str(exc))
+        raise HTTPException(status_code=500, detail=f"Restitch failed: {exc}") from exc
+
+    job_store.update(job_id, final_video_path=output_path, status=JobStatus.DONE, error="")
+    filename = os.path.basename(output_path)
+    return {"video_url": f"/api/v2/video/{job_id}/{filename}"}
 
 
 # ---------------------------------------------------------------------------
