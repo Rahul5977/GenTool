@@ -232,10 +232,23 @@ ABSOLUTE RULES:
     @staticmethod
     def _check_rai(operation) -> None:
         """Raise ContentPolicyError if the operation was blocked by RAI filters."""
+        # Check for an explicit API-level error first
+        op_error = getattr(operation, "error", None)
+        if op_error:
+            raise RuntimeError(f"Veo operation completed with error: {op_error}")
+
         # The RAI block surfaces differently depending on SDK version; check both.
         response = getattr(operation, "response", None)
         if response is None:
-            raise RuntimeError("Veo operation completed but has no response object.")
+            # A completed operation with no response object is Veo's silent RAI block.
+            # Raise ContentPolicyError so the retry loop rephrases and retries.
+            logger.warning(
+                "Veo operation completed but response is None — treating as silent RAI block. "
+                "Prompt will be rephrased and retried."
+            )
+            raise ContentPolicyError(
+                "Veo operation completed but has no response object."
+            )
 
         # Some SDK versions surface a top-level blocked flag
         if getattr(response, "blocked", False):

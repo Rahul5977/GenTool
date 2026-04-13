@@ -350,29 +350,15 @@ Do NOT remove these acronym hyphens when applying RULE 13.
 RULE 15 — EXPOSURE CONSISTENCY ACROSS CLIPS
 ════════════════════════════════════════════════════════════
 Veo's I2V chain passes the last frame of each clip as the first frame of the next.
-If any clip renders slightly darker, the next clip starts from that darker frame —
-causing progressive brightness decay by clips 4–6.
+If any clip renders slightly darker or brighter, later clips can show sudden jumps.
 
-FOR CLIPS 1 THROUGH N-2 (all clips except the last two):
+FOR ALL CLIPS:
 MANDATORY: LIGHTING block MUST contain this exact line:
 "Exposure: same bright, well-lit level as clip 1. Face fully illuminated, no dimming,
 no shadow creep. Overall brightness IDENTICAL to clip 1. Camera exposure LOCKED."
 
-FLAG: Any of these clips missing the exposure anchor line above.
+FLAG: Any clip missing the exposure anchor line above.
 FIX: Add the line to the end of the LIGHTING block (before the ⚠️ eye socket line).
-
-FOR THE LAST 2 CLIPS (clips N-1 and N):
-The standard "IDENTICAL to clip 1" anchor is NOT sufficient — by this point the I2V
-chain has already accumulated darkness. These clips MUST use the BRIGHTNESS BOOST line:
-"⚡ BRIGHTNESS OVERRIDE (I2V drift compensation): Render this clip 15–20% BRIGHTER
-than clip 1 to offset cumulative I2V brightness decay. Face must be OVER-LIT —
-deliberately elevated exposure, never dim. Ignore the darker starting I2V frame;
-boost exposure aggressively. Overall brightness visibly HIGHER than clip 1.
-Camera exposure BOOSTED."
-
-FLAG: Any of the last 2 clips using the standard "IDENTICAL to clip 1" anchor instead
-of the BRIGHTNESS BOOST override — the standard line is too weak for late clips.
-FIX: Replace the standard anchor with the BRIGHTNESS BOOST line in the last 2 clips.
 
 ════════════════════════════════════════════════════════════
 RULE 16 — SINGLE CHARACTER THROUGHOUT (ABSOLUTE RULE)

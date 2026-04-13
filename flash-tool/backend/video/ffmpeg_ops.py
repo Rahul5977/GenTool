@@ -52,13 +52,16 @@ def normalize_clip(
     input_path: str,
     output_path: str,
     aspect_ratio: str = "9:16",
+    trim_to_seconds: Optional[float] = 7.7,
+    add_audio_fade: bool = True,
 ) -> bool:
     """Scale, pad, re-encode a clip to a consistent baseline.
 
     • Scales to target resolution preserving aspect ratio, pads with black.
     • Forces 24 fps, yuv420p pixel format.
     • H.264 CRF 18, AAC 192 kbps stereo 44.1 kHz.
-    • CRITICAL: Applies 0.2s exponential audio fade-out to prevent ghost pops.
+    • Optional SURGICAL TRIM: clip can be capped to remove Veo tail artifacts.
+    • Optional AUDIO FADE: 0.2s exponential fade-out on trimmed end.
     """
     if aspect_ratio not in _RESOLUTIONS:
         logger.error("normalize_clip: unsupported aspect_ratio %r", aspect_ratio)
@@ -66,14 +69,28 @@ def normalize_clip(
 
     W, H = _RESOLUTIONS[aspect_ratio]
 
-    # Get clip duration to calculate fade-out start time
-    duration = probe_duration(input_path)
-    if duration <= 0:
+    # Probe original duration
+    original_duration = probe_duration(input_path)
+    if original_duration <= 0:
         logger.error("normalize_clip: could not probe duration for %s", input_path)
         return False
 
-    # Fade-out starts 0.2 seconds before clip end
-    fade_start = max(0, duration - 0.2)
+    # Optional surgical trim for Veo clips; CTA or other assets can disable this.
+    if trim_to_seconds is None:
+        target_duration = original_duration
+    else:
+        target_duration = min(original_duration, trim_to_seconds)
+
+    # Audio fade-out starts 0.2s before the trimmed end.
+    fade_start = max(0, target_duration - 0.2)
+
+    logger.info(
+        "normalize_clip: %s  %.2fs → %.2fs (trimmed %.2fs hallucination tail)",
+        os.path.basename(input_path),
+        original_duration,
+        target_duration,
+        original_duration - target_duration,
+    )
 
     vf = (
         f"scale={W}:{H}:force_original_aspect_ratio=decrease,"
@@ -82,20 +99,24 @@ def normalize_clip(
         f"format=yuv420p"
     )
 
-    # Audio filter chain with exponential fade-out:
-    # 1. aresample=async=1 — sync audio to video
-    # 2. afade=t=out:st={fade_start}:d=0.2:curve=exp — exponential fade-out last 0.2s
-    # 3. apad — pad audio if needed
-    af = f"aresample=async=1,afade=t=out:st={fade_start}:d=0.2:curve=exp,apad"
+    # Audio filter: sync, optional fade-out, then pad for clean concat.
+    if add_audio_fade:
+        af = f"aresample=async=1,afade=t=out:st={fade_start}:d=0.2:curve=exp,apad"
+    else:
+        af = "aresample=async=1,apad"
 
     cmd = [
         _ffmpeg(), "-y", "-i", input_path,
+        "-t", str(target_duration),  # SURGICAL TRIM: hard-stop at 7.7s
         "-vf", vf,
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-pix_fmt", "yuv420p",
+        "-color_primaries", "bt709",
+        "-color_trc", "bt709",
+        "-colorspace", "bt709",
         "-video_track_timescale", "12800",
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
-        "-af", af,  # CRITICAL FIX: exponential audio fade-out prevents ghost pops
+        "-af", af,
         "-shortest",
         output_path,
     ]
@@ -134,6 +155,9 @@ def concat_clips(clip_paths: list[str], output_path: str) -> bool:
         "-map", "[vout]", "-map", "[aout]",
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-pix_fmt", "yuv420p",
+        "-color_primaries", "bt709",
+        "-color_trc", "bt709",
+        "-colorspace", "bt709",
         "-video_track_timescale", "12800",
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
         output_path,
@@ -180,7 +204,24 @@ def trim_trailing_dark(
         logger.info("trim_trailing_dark: no black sections found — copying unchanged")
         return _copy_file(input_path, output_path)
 
+    total_duration = probe_duration(input_path)
     last_black_start = max(black_starts)
+
+    # Safety: only trim if the dark section is within the last 3 seconds.
+    # A black section earlier than that is a mid-video dark scene (e.g. a Veo
+    # dark handoff between clips) — trimming there would discard the rest of
+    # the ad. Since normalize_clip() already strips each clip's dark tail at
+    # 7.7s, mid-video black detections are always false positives here.
+    if total_duration > 0 and last_black_start < total_duration - 3.0:
+        logger.info(
+            "trim_trailing_dark: last black at %.2fs is %.2fs before end "
+            "(total=%.2fs) — skipping, likely a mid-video false positive",
+            last_black_start,
+            total_duration - last_black_start,
+            total_duration,
+        )
+        return _copy_file(input_path, output_path)
+
     trim_end = max(last_black_start - 0.1, 0.0)
 
     logger.info("trim_trailing_dark: trimming to %.3fs (last black at %.3fs)",
@@ -205,7 +246,12 @@ def trim_leading_black(input_path: str, output_path: str) -> bool:
 
     Uses blackdetect to find the end of the first black section, then
     re-encodes from that timestamp forward.
+
+    Safety: if trimming would remove >50% of the video, skip trimming
+    to prevent accidentally hollowing out the CTA.
     """
+    original_duration = probe_duration(input_path)
+
     detect_cmd = [
         _ffmpeg(), "-i", input_path,
         "-vf", "blackdetect=d=0.1:pix_th=0.08",
@@ -229,7 +275,16 @@ def trim_leading_black(input_path: str, output_path: str) -> bool:
         return _copy_file(input_path, output_path)
 
     first_black_end = black_ends[0]
-    logger.info("trim_leading_black: seeking to %.3fs", first_black_end)
+
+    # Safety: refuse to trim more than 50% of the video
+    if original_duration > 0 and first_black_end > original_duration * 0.5:
+        logger.warning(
+            "trim_leading_black: would trim %.2fs from %.2fs video (>50%%) — skipping",
+            first_black_end, original_duration,
+        )
+        return _copy_file(input_path, output_path)
+
+    logger.info("trim_leading_black: seeking to %.3fs (original=%.2fs)", first_black_end, original_duration)
 
     cmd = [
         _ffmpeg(), "-y",
@@ -242,6 +297,17 @@ def trim_leading_black(input_path: str, output_path: str) -> bool:
         output_path,
     ]
     result = _run(cmd)
+
+    # Verify output has reasonable duration
+    if result.returncode == 0:
+        trimmed_duration = probe_duration(output_path)
+        if trimmed_duration < 0.5:
+            logger.error(
+                "trim_leading_black: output too short (%.2fs) — falling back to original",
+                trimmed_duration,
+            )
+            return _copy_file(input_path, output_path)
+
     return result.returncode == 0
 
 

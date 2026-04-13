@@ -422,18 +422,10 @@ SECTION 9 — LIGHTING
 PRIMARY: warm side-fill (45° from frame left or right — be consistent across all clips)
 SECONDARY: soft overhead ambient to eliminate under-eye and eye-socket shadows
 
-EXPOSURE LOCK (for clips 1 through N-2):
-  Add this line in EVERY clip's LIGHTING block (clips 1 through second-to-last):
+EXPOSURE LOCK (for ALL clips):
+  Add this line in EVERY clip's LIGHTING block:
   "Exposure: same bright, well-lit level as clip 1. Face fully illuminated, no dimming,
   no shadow creep. Overall brightness IDENTICAL to clip 1. Camera exposure LOCKED."
-
-BRIGHTNESS BOOST OVERRIDE (last 2 clips only):
-  For the last 2 clips, REPLACE the exposure anchor with:
-  "⚡ BRIGHTNESS OVERRIDE (I2V drift compensation): Render this clip 15–20% BRIGHTER
-  than clip 1 to offset cumulative I2V brightness decay. Face must be OVER-LIT —
-  deliberately elevated exposure, never dim. Ignore the darker starting I2V frame;
-  boost exposure aggressively. Overall brightness visibly HIGHER than clip 1.
-  Camera exposure BOOSTED."
 
 Then copy VERBATIM in ALL clips:
   "⚠️ आँखें clearly visible। कोई काले eye socket shadows नहीं। कोई ghost-face नहीं।

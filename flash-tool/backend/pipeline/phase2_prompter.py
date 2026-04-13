@@ -43,7 +43,10 @@ def generate_prompts(brief: ProductionBrief) -> list[ClipPrompt]:
 
     clip_prompts = _parse_clip_prompts(raw_clips)
 
-    # Verifier applies the 13 rules and auto-fixes issues in-place
+    # Enforce verbatim background lock — safety net in case Gemini paraphrased
+    clip_prompts = _enforce_background_lock(clip_prompts, brief.locked_background)
+
+    # Verifier applies the rules and auto-fixes issues in-place
     logger.info("Phase 2: running verifier on %d clips", len(clip_prompts))
     clip_prompts = verify_prompts(clip_prompts)
 
@@ -98,9 +101,21 @@ def _build_user_message(brief: ProductionBrief) -> str:
 
     return f"""
 ════════════════════════════════════════════
-LOCKED BACKGROUND — COPY VERBATIM INTO EVERY CLIP'S LOCATION BLOCK
+⚠️ LOCKED BACKGROUND — COPY WORD-FOR-WORD INTO EVERY CLIP'S LOCATION BLOCK
 ════════════════════════════════════════════
+DO NOT paraphrase. DO NOT summarize. DO NOT add or remove any detail.
+Copy the following text CHARACTER-FOR-CHARACTER into every clip's LOCATION block,
+then append the freeze line immediately after it.
+
 {brief.locked_background}
+
+Freeze line (append verbatim after the background in every clip):
+"पृष्ठभूमि पूरी तरह स्थिर और अपरिवर्तित रहती है — कोई नई वस्तु नहीं आएगी,
+कोई वस्तु गायब नहीं होगी, रंग नहीं बदलेगा।"
+
+DEPTH OF FIELD NOTE: Background should appear with natural depth-of-field blur —
+sharp focus on the character's face, background softly out of focus (f/2.8 equivalent).
+This is REQUIRED in every clip's CAMERA block.
 
 ════════════════════════════════════════════
 CHARACTER APPEARANCE — COPY VERBATIM INTO EVERY CLIP'S OUTFIT & APPEARANCE BLOCK
@@ -119,6 +134,77 @@ CLIP BRIEFS — Generate one Veo prompt per clip
 ════════════════════════════════════════════
 {clips_json}
 """.strip()
+
+
+# ---------------------------------------------------------------------------
+# Background lock enforcement
+# ---------------------------------------------------------------------------
+
+_FREEZE_LINE = (
+    "पृष्ठभूमि पूरी तरह स्थिर और अपरिवर्तित रहती है — कोई नई वस्तु नहीं आएगी, "
+    "कोई वस्तु गायब नहीं होगी, रंग नहीं बदलेगा।"
+)
+
+# Section markers that follow LOCATION in the prompt
+_AFTER_LOCATION_MARKERS = ["ACTION:", "AUDIO:", "CAMERA:", "DIALOGUE:", "LIGHTING:"]
+
+
+def _enforce_background_lock(clips: list[ClipPrompt], locked_background: str) -> list[ClipPrompt]:
+    """Post-generation safety net: ensure every clip's LOCATION block contains
+    the locked background verbatim and the freeze line.
+
+    Gemini occasionally paraphrases the background despite explicit instructions.
+    This function detects deviations and replaces the LOCATION block in-place.
+    """
+    canonical = f"{locked_background}\n\n{_FREEZE_LINE}"
+
+    for clip in clips:
+        prompt = clip.prompt
+
+        if "LOCATION:" not in prompt:
+            logger.warning(
+                "Phase 2: Clip %d has no LOCATION block — skipping background enforcement",
+                clip.clip_number,
+            )
+            continue
+
+        loc_start = prompt.index("LOCATION:") + len("LOCATION:")
+
+        # Find the next section marker after LOCATION
+        next_idx = None
+        for marker in _AFTER_LOCATION_MARKERS:
+            search_from = loc_start
+            pos = prompt.find(marker, search_from)
+            if pos != -1 and (next_idx is None or pos < next_idx):
+                next_idx = pos
+
+        if next_idx is None:
+            logger.warning(
+                "Phase 2: Clip %d LOCATION block has no following section — skipping",
+                clip.clip_number,
+            )
+            continue
+
+        current_location = prompt[loc_start:next_idx].strip()
+
+        # Check if background AND freeze line are already verbatim
+        has_bg = locked_background in current_location
+        has_freeze = _FREEZE_LINE.split("—")[0].strip() in current_location  # partial match
+
+        if has_bg and has_freeze:
+            continue  # Already correct
+
+        # Replace LOCATION block with canonical version
+        before = prompt[:loc_start]
+        after = prompt[next_idx:]
+        clip.prompt = f"{before}\n{canonical}\n\n{after}"
+
+        logger.info(
+            "Phase 2: Clip %d LOCATION block replaced (had_bg=%s, had_freeze=%s)",
+            clip.clip_number, has_bg, has_freeze,
+        )
+
+    return clips
 
 
 # ---------------------------------------------------------------------------
