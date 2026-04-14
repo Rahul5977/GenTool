@@ -34,8 +34,32 @@ PY
   python3 -m pip install -r requirements.txt -q
 fi
 
-echo "  [2/4] Starting backend on :8000…"
+echo "  [2/4] Starting backend on :8020…"
 cd "$ROOT"
+EXISTING_BACKEND_PID="$(lsof -t -iTCP:8020 -sTCP:LISTEN 2>/dev/null | head -n 1)"
+if [ -n "$EXISTING_BACKEND_PID" ]; then
+  echo "  ⚠  Port 8020 already in use (PID: $EXISTING_BACKEND_PID) — stopping stale backend…"
+  kill "$EXISTING_BACKEND_PID" 2>/dev/null || true
+fi
+
+# Wait until port is truly free (reload mode can leave child process briefly alive).
+for _ in 1 2 3 4 5; do
+  CURRENT_PID="$(lsof -t -iTCP:8020 -sTCP:LISTEN 2>/dev/null | head -n 1)"
+  if [ -z "$CURRENT_PID" ]; then
+    break
+  fi
+  kill "$CURRENT_PID" 2>/dev/null || true
+  sleep 1
+done
+
+# Last-resort hard kill if a stale process still owns the port.
+CURRENT_PID="$(lsof -t -iTCP:8020 -sTCP:LISTEN 2>/dev/null | head -n 1)"
+if [ -n "$CURRENT_PID" ]; then
+  echo "  ⚠  Port 8020 still busy (PID: $CURRENT_PID) — force stopping…"
+  kill -9 "$CURRENT_PID" 2>/dev/null || true
+  sleep 1
+fi
+
 uvicorn backend.main:app --reload --reload-dir "$ROOT/backend" --host 0.0.0.0 --port 8020 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
