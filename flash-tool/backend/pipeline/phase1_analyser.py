@@ -61,21 +61,47 @@ def analyse_script(
     )
 
     logger.info("Phase 1: calling Gemini to analyse script (%d clips)", num_clips)
-    raw: dict = gemini_client.generate_json(
-        system_prompt=SYSTEM_ANALYSER,
-        user_prompt=user_message,
-        temperature=0.1,
-    )
 
-    # -----------------------------------------------------------------------
-    # Parse raw dict into model objects
-    # -----------------------------------------------------------------------
-    brief = _parse_brief(raw, coach)
+    # Gemini can occasionally return fewer clips than requested.
+    # Retry a few times with stricter instructions so the pipeline does not
+    # silently proceed with the wrong clip count.
+    max_attempts = 3
+    brief: ProductionBrief | None = None
+    for attempt in range(1, max_attempts + 1):
+        attempt_message = user_message
+        if attempt > 1:
+            attempt_message += (
+                "\n\nCRITICAL RETRY INSTRUCTION:\n"
+                f"You MUST return exactly {num_clips} clips in the clips array. "
+                "Do not return fewer or more clips."
+            )
 
-    # -----------------------------------------------------------------------
-    # Validate and auto-correct
-    # -----------------------------------------------------------------------
-    brief = _validate_and_fix(brief, num_clips)
+        raw: dict = gemini_client.generate_json(
+            system_prompt=SYSTEM_ANALYSER,
+            user_prompt=attempt_message,
+            temperature=0.1,
+        )
+
+        candidate = _parse_brief(raw, coach)
+        candidate = _validate_and_fix(candidate, num_clips)
+
+        if len(candidate.clips) == num_clips:
+            brief = candidate
+            break
+
+        logger.warning(
+            "Phase 1 attempt %d/%d returned %d clips (requested %d) — retrying",
+            attempt, max_attempts, len(candidate.clips), num_clips,
+        )
+        brief = candidate
+
+    if brief is None:
+        raise RuntimeError("Phase 1 failed to produce a valid ProductionBrief")
+    if len(brief.clips) != num_clips:
+        raise ValueError(
+            f"Phase 1 could not produce requested clip count after {max_attempts} attempts: "
+            f"requested={num_clips}, got={len(brief.clips)}"
+        )
 
     logger.info("Phase 1 complete — %d clips, character: %s skin", len(brief.clips), brief.character.skin_tone)
     return brief
