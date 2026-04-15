@@ -99,6 +99,41 @@ def _build_user_message(brief: ProductionBrief) -> str:
         indent=2,
     )
 
+    # ── Domain-specific visual markers ─────────────────────────────────────
+    domain_block = ""
+    if brief.domain and brief.domain != "general":
+        domain_block = f"""
+════════════════════════════════════════════
+⚠️ DOMAIN-SPECIFIC VISUAL DIRECTION — {brief.domain.upper()}
+════════════════════════════════════════════
+This ad is for the {brief.domain} domain. The character's VISUAL APPEARANCE
+must match the emotional arc. Coach is introduced in clip {brief.coach_clip}.
+
+PRE-COACH CLIPS (1 to {brief.coach_clip}) — CHARACTER SHOWS THE PROBLEM:
+{chr(10).join(f'  • {m}' for m in brief.pre_coach_visual_markers)}
+
+POST-COACH CLIPS ({brief.coach_clip + 1} to {len(brief.clips)}) — CHARACTER SHOWS CONFIDENCE:
+{chr(10).join(f'  • {m}' for m in brief.post_coach_visual_markers)}
+
+CRITICAL: The PHYSICAL BODY does NOT change. NO transformation. NO before/after.
+What changes: POSTURE, STYLING, EYE CONTACT, ENERGY, VOICE REGISTER.
+The same person, same build, same outfit — but how they CARRY themselves changes.
+
+PER-CLIP VISUAL STATES (inject into ACTION section of each clip):
+"""
+        for i, clip in enumerate(brief.clips):
+            if clip.visual_state:
+                vs = clip.visual_state
+                domain_block += f"""
+Clip {clip.clip_number}:
+  POSTURE: {vs.posture}
+  STYLING: {vs.styling_state}
+  ENERGY: {vs.energy_level}
+  EYE CONTACT: {vs.eye_contact_pattern}
+  VOICE: {vs.voice_register}
+  LIGHTING WARMTH: {vs.lighting_warmth}
+"""
+
     return f"""
 ════════════════════════════════════════════
 ⚠️ LOCKED BACKGROUND — COPY WORD-FOR-WORD INTO EVERY CLIP'S LOCATION BLOCK
@@ -128,6 +163,8 @@ PRODUCTION METADATA
 Coach: {brief.coach}
 Aspect ratio: {brief.aspect_ratio}
 Setting: {brief.setting}
+
+{domain_block}
 
 ════════════════════════════════════════════
 CLIP BRIEFS — Generate one Veo prompt per clip

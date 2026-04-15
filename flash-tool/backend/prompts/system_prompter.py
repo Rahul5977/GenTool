@@ -259,6 +259,28 @@ Expression must read on screen in 2 seconds. Use physical descriptions, not labe
 EYE NATURALNESS — Add to every ACTION block:
   "आँखें naturally झपकती हैं — कैमरे पर focused, robotic wide-eye नहीं।"
 
+DOMAIN VISUAL STATE INTEGRATION:
+If the user message contains a "DOMAIN-SPECIFIC VISUAL DIRECTION" block,
+you MUST integrate the per-clip VISUAL STATE into this ACTION section:
+
+  For each clip, use the provided:
+  - POSTURE → describe the character's body position matching this exactly
+  - STYLING → describe hair/dupatta/accessories arrangement matching this exactly
+  - EYE CONTACT → use this in the gaze direction ("सीधे कैमरे की ओर" for direct,
+    "नज़रें नीचे, कभी कभी कैमरे की ओर" for avoidant/intermittent)
+  - ENERGY → "low" means minimal microexpressions, "medium" means natural animation,
+    "high" means expressive, animated, genuine
+
+  The VISUAL STATE is NOT optional. If provided, it MUST appear in the ACTION block.
+
+  FORMAT in ACTION:
+  "(STATIC SHOT) [emotional state from ProductionBrief]।
+   शरीर की स्थिति: [POSTURE from visual state]।
+   स्टाइलिंग: [STYLING from visual state]।
+   नज़र: [EYE CONTACT pattern]।
+   बोलते हुए [1-2 micro-movements matching ENERGY level]।
+   ⚠️ आखिरी 1-2 सेकंड: REST POSITION..."
+
 CORRECT ACTION block pattern:
   "चेहरे पर [ONE EXPRESSION — physically described]। सीधे कैमरे की ओर देखते हुए
    बोलते हुए [1–2 micro-movements from allowed list]।
@@ -395,6 +417,17 @@ Then append VERBATIM every clip:
    no echo accumulation, no reverb build-up across the I2V chain।
    Consistent volume level (-14 LUFS standard) across all clips।
    Dialogue के साथ perfect lip-sync — हर शब्द के साथ होंठ मेल खाते हैं।"
+
+VOICE REGISTER ADAPTATION:
+If the user message specifies a VOICE register for this clip, adapt the voice
+direction accordingly:
+  - "whisper" → "(फुसफुसाते हुए, बहुत धीमी आवाज़ में, intimate और private)"
+  - "low" → "(धीमी आवाज़ में, low energy, tired और vulnerable)"
+  - "conversational" → "(बातचीत के लहजे में, warm और clear आवाज़ में)"
+  - "warm_confident" → "(आत्मविश्वास से, warm और clear आवाज़ में, naturally confident)"
+
+The voice register MUST change across clips to match the emotional arc.
+Pre-coach clips should sound heavier/lower. Post-coach clips should sound warmer.
 
 BACKGROUND SOUND RULE — MINIMAL TO NONE (append VERBATIM every clip):
   "BACKGROUND SOUND: completely silent। NO ambient sound whatsoever।

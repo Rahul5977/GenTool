@@ -13,6 +13,12 @@ from ..models import (
     ClipBrief,
     ProductionBrief,
 )
+from ..pipeline.domain_profiler import (
+    get_domain_profile,
+    detect_domain,
+    build_visual_states,
+    detect_coach_clip,
+)
 from ..prompts.system_analyser import SYSTEM_ANALYSER
 
 logger = logging.getLogger(__name__)
@@ -82,7 +88,7 @@ def analyse_script(
             temperature=0.1,
         )
 
-        candidate = _parse_brief(raw, coach)
+        candidate = _parse_brief(raw, coach, script)
         candidate = _validate_and_fix(candidate, num_clips)
 
         if len(candidate.clips) == num_clips:
@@ -111,7 +117,7 @@ def analyse_script(
 # Parsing
 # ---------------------------------------------------------------------------
 
-def _parse_brief(raw: dict, coach: str) -> ProductionBrief:
+def _parse_brief(raw: dict, coach: str, script_text: str) -> ProductionBrief:
     """Convert the raw Gemini dict into a ProductionBrief."""
     try:
         character = CharacterSpec(**raw["character"])
@@ -133,7 +139,7 @@ def _parse_brief(raw: dict, coach: str) -> ProductionBrief:
     if not locked_background:
         raise ValueError("Gemini output is missing 'locked_background'.")
 
-    return ProductionBrief(
+    brief = ProductionBrief(
         clips=clips,
         character=character,
         locked_background=locked_background,
@@ -142,6 +148,24 @@ def _parse_brief(raw: dict, coach: str) -> ProductionBrief:
         setting=raw.get("setting", ""),
         voice_characteristics=_build_voice_characteristics(character.age, character.gender),
     )
+
+    # ── Domain profiler integration ──
+    domain = raw.get("domain", None) or detect_domain(script_text)
+    coach_clip = raw.get("coach_clip", None) or detect_coach_clip(clips, len(clips))
+
+    profile = get_domain_profile(domain)
+    visual_states = build_visual_states(profile, num_clips=len(clips), coach_clip=coach_clip)
+
+    for i, clip in enumerate(clips):
+        if i < len(visual_states):
+            clip.visual_state = visual_states[i]
+
+    brief.domain = domain
+    brief.coach_clip = coach_clip
+    brief.pre_coach_visual_markers = profile.pre_coach_appearance_modifiers
+    brief.post_coach_visual_markers = profile.post_coach_appearance_modifiers
+    brief.visual_states = visual_states
+    return brief
 
 
 # ---------------------------------------------------------------------------

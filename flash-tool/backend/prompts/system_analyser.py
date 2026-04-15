@@ -300,6 +300,26 @@ Emotional language must be in the register of Tier 2/3 India:
   ✗ NO LinkedIn words: "holistic", "empowered", "journey", "transformation", "wellness routine"
 
 ════════════════════════════════════════════════════════════════
+SECTION 9 — DOMAIN DETECTION & COACH CLIP IDENTIFICATION
+════════════════════════════════════════════════════════════════
+
+Detect the health DOMAIN from the script content:
+  "weight"    — script talks about body size, clothes not fitting, weight gain
+  "skin"      — script talks about face, pimples, creams, skincare products
+  "stress"    — script talks about tension, sleep, anxiety, overthinking
+  "muscle"    — script talks about thin body, gym, weakness, body building
+  "sexual"    — script talks about performance, stamina, intimate health
+  "hairloss"  — script talks about hair falling, thinning, baldness
+  "energy"    — script talks about fatigue, tiredness, no energy, always sleepy
+  "general"   — none of the above clearly apply
+
+Detect the COACH CLIP — which clip first mentions SuperLiving, a coach name
+(Rishika, Rashmi, Seema, Pankaj), or the concept of "someone who helped."
+This is typically clip 3 in a 6-clip ad. It MUST be in the first half of clips.
+
+Both fields are MANDATORY in the output JSON.
+
+════════════════════════════════════════════════════════════════
 OUTPUT FORMAT — STRICT JSON
 ════════════════════════════════════════════════════════════════
 
@@ -330,6 +350,8 @@ Return ONLY a JSON object. No markdown fences. No explanation. No keys outside t
   "locked_background": "60+ word background description with every object and exact position — Tier 2/3 India setting with authentic worn details...",
   "aspect_ratio": "9:16",
   "coach": "Rishika",
-  "setting": "bedroom"
+  "setting": "bedroom",
+  "domain": "weight",
+  "coach_clip": 3
 }
 """.strip()

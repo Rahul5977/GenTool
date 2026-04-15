@@ -295,6 +295,20 @@ def _generate_reference_frame(
         f"Distinguishing marks: {marks_str}"
     )
 
+    # ── Domain-specific appearance modifiers for Frame 0 ──
+    # These make the initial character look authentic to their health domain
+    # (e.g., fuller build for weight domain, tired face for energy domain)
+    domain_modifiers = ""
+    if brief.domain and brief.domain != "general":
+        from ..pipeline.domain_profiler import get_domain_profile
+        profile = get_domain_profile(brief.domain)
+        if profile.imagen_character_modifiers:
+            domain_modifiers = ". ".join(profile.imagen_character_modifiers) + ". "
+
+    # Inject domain modifiers into the Imagen prompt
+    # They go AFTER the physical baseline but BEFORE the emotion/pose
+    physical_baseline = f"{physical_baseline}. {domain_modifiers}"
+
     # Use parameterised builder — respects gender (woman/man/person)
     prompt = build_imagen_prompt(
         physical_baseline=physical_baseline,
@@ -302,6 +316,10 @@ def _generate_reference_frame(
         gender=char.gender,
         opening_emotion=first_emotional_state,
         locked_background=brief.locked_background,
+    )
+    prompt += (
+        f" NOT a model, NOT a photoshoot, NOT studio lighting. Real person "
+        f"from a small Indian city. {domain_modifiers}"
     )
 
     # Append user's custom feedback if provided
