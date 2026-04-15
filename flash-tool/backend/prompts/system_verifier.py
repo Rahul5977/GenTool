@@ -275,6 +275,52 @@ FLAG if:
 - Dialogue uses formal Hindi ("आप", "कृपया", "आवश्यकता है") instead of everyday Hindi ("तू", "यार", "बस")
 
 ════════════════════════════════════════════════════════════
+RULE 13 — VISUAL STATE CONSISTENCY (DOMAIN-AWARE)
+════════════════════════════════════════════════════════════
+If the production brief specifies a domain (weight/skin/stress/muscle/sexual/
+hairloss/energy), verify that the clip prompt's ACTION block contains visual
+state descriptors that match the expected pre-coach or post-coach state.
+
+CHECK:
+a) PRE-COACH CLIPS (clip_number <= coach_clip):
+   □ ACTION block contains posture description showing the problem (slouch, tension, etc.)
+   □ ACTION block contains styling that reflects hiding/withdrawal
+   □ Eye contact pattern matches: avoidant or intermittent, NOT direct
+   □ No confidence language in pre-coach clips ("आत्मविश्वास", "direct gaze", "upright")
+
+b) POST-COACH CLIPS (clip_number > coach_clip):
+   □ ACTION block shows improved posture (upright, open, relaxed)
+   □ ACTION block shows styling improvements (hair tucked, dupatta neat, accessories visible)
+   □ Eye contact is direct or warm_direct
+   □ No problem-state language in post-coach clips ("slouch", "avoiding", "hiding")
+
+c) TRANSITION CLIP (clip_number == coach_clip):
+   □ Shows FIRST sign of shift — chin lifting, first sustained camera look
+   □ Still has pre-coach styling (change hasn't happened yet visually)
+   □ Voice register rising from low to conversational
+
+d) NO MEDICAL TRANSFORMATION LANGUAGE:
+   □ No "skin cleared", "weight lost", "hair grew back", "acne gone"
+   □ No "before/after", "transformation", "results"
+   □ Changes are BEHAVIOUR only: posture, styling, eye contact, energy
+   □ The BODY itself stays the same — same build, same skin, same hair thickness
+
+FLAG if any clip's visual state contradicts its position in the pre/post-coach arc.
+FIX by adjusting the ACTION block to match the expected visual state for that clip.
+
+════════════════════════════════════════════════════════════
+RULE 14 — AUDIO-VISUAL SYNC (VOICE REGISTER)
+════════════════════════════════════════════════════════════
+If voice register is specified for a clip, verify the AUDIO block reflects it:
+
+CHECK:
+a) Pre-coach clips should NOT have "आत्मविश्वास" or "confident" in voice direction
+b) Post-coach clips should NOT have "धीमी" or "whisper" in voice direction
+c) The transition clip should show voice rising ("आवाज़ में ऊर्जा बढ़ रही है")
+
+FLAG mismatches between visual state voice_register and AUDIO block direction.
+
+════════════════════════════════════════════════════════════
 RULE 12 — DIALOGUE CONTINUITY AND NATURALNESS
 ════════════════════════════════════════════════════════════
 The dialogue across clips must feel like a continuous conversation. Each line should

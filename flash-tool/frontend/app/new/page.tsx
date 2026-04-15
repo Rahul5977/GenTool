@@ -19,6 +19,15 @@ export default function NewJobPage() {
   const [numClips, setNumClips] = useState(4);
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [veoModel, setVeoModel] = useState("veo-3.1-generate-preview");
+  const [domain, setDomain] = useState("");
+  const [transitionType, setTransitionType] = useState("text_card");
+  const [transitionText, setTransitionText] = useState("SuperLiving me coach se\nbaat krne ke baad...");
+  const [textOverlays, setTextOverlays] = useState<Array<{
+    text: string;
+    start_time: number;
+    duration: number;
+    position: string;
+  }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,7 +39,28 @@ export default function NewJobPage() {
     setSubmitting(true);
     setError("");
     try {
-      const res = await api.createJob({ script, coach, num_clips: numClips, aspect_ratio: aspectRatio, veo_model: veoModel });
+      const res = await api.createJob({
+        script,
+        coach,
+        num_clips: numClips,
+        aspect_ratio: aspectRatio,
+        veo_model: veoModel,
+        domain: domain || undefined,
+        post_production: {
+          transitions: transitionType !== "none"
+            ? [
+                {
+                  type: transitionType,
+                  insert_after_clip: 3,
+                  duration: transitionType === "text_card" ? 1.0 : 0.5,
+                  text: transitionType === "text_card" ? transitionText : null,
+                },
+              ]
+            : [],
+          text_overlays: textOverlays.filter((o) => o.text.trim()),
+          image_overlays: [],
+        },
+      });
       router.push(`/jobs/${res.job_id}/progress`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create job");
@@ -169,6 +199,134 @@ export default function NewJobPage() {
           </div>
         </div>
 
+        <div className="p-5 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+          <label className="block text-xs font-semibold text-[#9ca3af] uppercase tracking-widest mb-2">
+            Health Domain
+          </label>
+          <select
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            className="w-full p-2 border border-[#2a2a2a] rounded bg-[#0f0f0f] text-white"
+          >
+            <option value="">Auto-detect from script</option>
+            <option value="weight">Weight / Body Image</option>
+            <option value="skin">Skin / Face</option>
+            <option value="stress">Stress / Anxiety / Sleep</option>
+            <option value="muscle">Muscle / Fitness / Body Building</option>
+            <option value="sexual">Sexual Health / Performance</option>
+            <option value="hairloss">Hair Loss / Hair Thinning</option>
+            <option value="energy">Energy / Fatigue</option>
+            <option value="general">General Health</option>
+          </select>
+
+          <div className="mt-4 p-4 border border-[#2a2a2a] rounded">
+            <h3 className="font-bold mb-2 text-white">Mid-Ad Transition (between pre/post coach)</h3>
+            <select
+              value={transitionType}
+              onChange={(e) => setTransitionType(e.target.value)}
+              className="w-full p-2 border border-[#2a2a2a] rounded bg-[#0f0f0f] text-white"
+            >
+              <option value="text_card">Text Card (recommended)</option>
+              <option value="flash_white">Flash White</option>
+              <option value="fade_black">Fade to Black</option>
+              <option value="none">No Transition</option>
+            </select>
+
+            {transitionType === "text_card" && (
+              <textarea
+                value={transitionText}
+                onChange={(e) => setTransitionText(e.target.value)}
+                placeholder="SuperLiving me coach se baat krne ke baad..."
+                className="w-full p-2 mt-2 border border-[#2a2a2a] rounded bg-[#0f0f0f] text-white"
+                rows={2}
+              />
+            )}
+          </div>
+
+          <details className="mt-4">
+            <summary className="cursor-pointer font-bold text-white">Text Overlays (Advanced)</summary>
+            <div className="p-4 border-t border-[#2a2a2a]">
+              {textOverlays.map((overlay, i) => (
+                <div key={i} className="mb-3 p-3 bg-[#0f0f0f] rounded border border-[#2a2a2a]">
+                  <input
+                    placeholder="Text (Hindi)"
+                    value={overlay.text}
+                    onChange={(e) => {
+                      setTextOverlays((prev) =>
+                        prev.map((o, idx) => (idx === i ? { ...o, text: e.target.value } : o))
+                      );
+                    }}
+                    className="w-full p-2 border border-[#2a2a2a] rounded bg-[#111] text-white"
+                  />
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="number"
+                      placeholder="Start (sec)"
+                      value={overlay.start_time}
+                      onChange={(e) => {
+                        setTextOverlays((prev) =>
+                          prev.map((o, idx) =>
+                            idx === i ? { ...o, start_time: Number(e.target.value) } : o
+                          )
+                        );
+                      }}
+                      className="w-full p-2 border border-[#2a2a2a] rounded bg-[#111] text-white"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Duration (sec)"
+                      value={overlay.duration}
+                      onChange={(e) => {
+                        setTextOverlays((prev) =>
+                          prev.map((o, idx) =>
+                            idx === i ? { ...o, duration: Number(e.target.value) } : o
+                          )
+                        );
+                      }}
+                      className="w-full p-2 border border-[#2a2a2a] rounded bg-[#111] text-white"
+                    />
+                    <select
+                      value={overlay.position}
+                      onChange={(e) => {
+                        setTextOverlays((prev) =>
+                          prev.map((o, idx) =>
+                            idx === i ? { ...o, position: e.target.value } : o
+                          )
+                        );
+                      }}
+                      className="w-full p-2 border border-[#2a2a2a] rounded bg-[#111] text-white"
+                    >
+                      <option value="bottom_center">Bottom Center</option>
+                      <option value="top_left">Top Left</option>
+                      <option value="top_right">Top Right</option>
+                      <option value="center">Center</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTextOverlays((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-red-500 text-sm mt-1"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setTextOverlays((prev) => [
+                    ...prev,
+                    { text: "", start_time: 0, duration: 2, position: "bottom_center" },
+                  ])
+                }
+                className="text-blue-500 text-sm"
+              >
+                + Add Text Overlay
+              </button>
+            </div>
+          </details>
+        </div>
+
         {/* Summary strip */}
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[#0d1a12] border border-[#1a5c3a]/40 text-xs text-green-300 mono flex-wrap">
           <span>Coach: <b>{coach}</b></span>
@@ -178,6 +336,8 @@ export default function NewJobPage() {
           <span>Format: <b>{aspectRatio}</b></span>
           <span className="text-[#1a5c3a]">|</span>
           <span>Model: <b>{veoModel.split("-").slice(0, 2).join(" ")}</b></span>
+          <span className="text-[#1a5c3a]">|</span>
+          <span>Domain: <b>{domain || "auto"}</b></span>
         </div>
 
         {error && (

@@ -19,8 +19,10 @@ from .models import (
     ApprovePromptsRequest,
     CreateJobRequest,
     JobStatus,
+    PostProductionConfig,
     RegenClipRequest,
     RegenImageRequest,
+    TransitionEffect,
     UpdateClipPromptRequest,
     VideoJob,
 )
@@ -45,6 +47,9 @@ app = FastAPI(title="Flash Tool API", version="2.0.0")
 
 class RestitchRequest(BaseModel):
     clip_indices: list[int] | None = None
+
+
+_post_production_configs: dict[str, PostProductionConfig] = {}
 
 
 @app.on_event("startup")
@@ -99,13 +104,35 @@ async def list_jobs():
 @app.post("/api/v2/jobs/create", status_code=201)
 async def create_job(body: CreateJobRequest):
     """Create a VideoJob and immediately kick off the pipeline in a thread."""
+    # Auto-detect domain if not explicitly provided
+    if not body.domain:
+        from .pipeline.domain_profiler import detect_domain
+        body.domain = detect_domain(body.script)
+        logger.info("Auto-detected domain: %s", body.domain)
+
+    # Default transition config when none supplied
+    if body.post_production is None:
+        body.post_production = PostProductionConfig(
+            transitions=[
+                TransitionEffect(
+                    type="text_card",
+                    insert_after_clip=3,
+                    duration=1.0,
+                    text="SuperLiving me coach se\nbaat krne ke baad...",
+                )
+            ]
+        )
+
     job = VideoJob(
         script_raw=body.script,
         coach=body.coach,
         num_clips=body.num_clips,
         aspect_ratio=body.aspect_ratio,
+        domain=body.domain or "general",
+        post_production=body.post_production,
     )
     job_store.create(job)
+    _post_production_configs[job.job_id] = body.post_production
 
     # Pre-create the SSE queue so the client can connect before phase 1 emits
     _job_event_queues.setdefault(job.job_id, [])
@@ -120,6 +147,36 @@ async def create_job(body: CreateJobRequest):
 
     logger.info("Job %s created — pipeline thread started", job.job_id)
     return {"job_id": job.job_id, "status": job.status}
+
+
+@app.put("/api/v2/jobs/{job_id}/post-production")
+async def update_post_production(job_id: str, body: PostProductionConfig):
+    """Update overlay and transition config for a job."""
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    if job.status in (JobStatus.STITCHING, JobStatus.POST_PRODUCING, JobStatus.DONE):
+        raise HTTPException(400, "Cannot update post-production — video already being finalized")
+
+    _post_production_configs[job_id] = body
+    job_store.update(job_id, post_production=body)
+    return {"status": "updated", "job_id": job_id}
+
+
+@app.get("/api/v2/domains")
+async def list_domains():
+    """Return available domain profiles for frontend domain dropdown."""
+    from .pipeline.domain_profiler import _DOMAIN_PROFILES
+
+    return [
+        {
+            "domain": d.domain,
+            "pre_coach_markers": d.pre_coach_appearance_modifiers[:3],
+            "post_coach_markers": d.post_coach_appearance_modifiers[:3],
+        }
+        for d in _DOMAIN_PROFILES.values()
+    ]
 
 
 # ---------------------------------------------------------------------------

@@ -106,6 +106,8 @@ class VideoJob(BaseModel):
     coach: str = "Rishika"
     num_clips: int = 4
     aspect_ratio: str = "9:16"
+    domain: str = "general"
+    post_production: Optional["PostProductionConfig"] = None
     production_brief: Optional[ProductionBrief] = None
     clips: list[ClipPrompt] = []
     keyframes: list[KeyFrame] = []

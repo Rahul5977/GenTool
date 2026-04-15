@@ -274,6 +274,8 @@ def _phase4(job_id: str, request: CreateJobRequest) -> None:
 
 def _phase5(job_id: str, request: CreateJobRequest) -> None:
     job = job_store.get(job_id)
+    if not job:
+        raise RuntimeError(f"Job {job_id} not found during Phase 5")
     clip_paths = job.clip_paths  # type: ignore[union-attr]
 
     job_store.set_status(
@@ -282,9 +284,16 @@ def _phase5(job_id: str, request: CreateJobRequest) -> None:
     emit_event(job_id, "phase_start", {"phase": 5, "message": "Stitching final video..."})
 
     output_path = os.path.join(config.TMP_DIR, job_id, "final.mp4")
-    transitions = None
-    if request.post_production and request.post_production.transitions:
-        transitions = request.post_production.transitions
+    # Get post-production config from job (may be updated via API)
+    pp = job.post_production or (request.post_production if request else None)
+    transitions = pp.transitions if pp else None
+
+    # Update default transition insertion point to actual coach clip
+    if transitions and job.production_brief:
+        actual_coach_clip = job.production_brief.coach_clip
+        for trans in transitions:
+            if trans.insert_after_clip == 3:
+                trans.insert_after_clip = actual_coach_clip
 
     final_path = stitch_and_finalize(
         clip_paths=clip_paths,
@@ -303,7 +312,8 @@ def _phase5_5(job_id: str, request: CreateJobRequest) -> None:
     if not job:
         raise RuntimeError(f"Job {job_id} not found during Phase 5.5")
 
-    if not request.post_production:
+    pp = job.post_production or (request.post_production if request else None)
+    if not pp:
         logger.info("Job %s: no post-production config — skipping Phase 5.5", job_id)
         final_path = job.final_video_path
         job_store.set_status(job_id, JobStatus.DONE, progress=100)
@@ -312,7 +322,6 @@ def _phase5_5(job_id: str, request: CreateJobRequest) -> None:
         emit_event(job_id, "done", {"video_url": video_url})
         return
 
-    pp = request.post_production
     has_text = bool(pp.text_overlays)
     has_images = bool(pp.image_overlays)
 
