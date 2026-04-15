@@ -35,6 +35,15 @@ uvicorn main:app --reload --port 8000
 
 API docs available at `http://localhost:8000/docs`.
 
+## Hindi Overlay Font Setup
+
+For Phase 5.5 Hindi text overlays/transitions, install Noto Sans Devanagari:
+
+```bash
+cd backend
+./scripts/setup_fonts.sh
+```
+
 ## API overview
 
 | Method | Path | Description |

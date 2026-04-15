@@ -14,6 +14,7 @@ class JobStatus(str, Enum):
     AWAITING              = "awaiting_approval"
     GENERATING            = "generating"
     STITCHING             = "stitching"
+    POST_PRODUCING        = "post_producing"
     DONE                  = "done"
     FAILED                = "failed"
 
@@ -25,6 +26,7 @@ class PipelinePhase(str, Enum):
     PHASE_3       = "image_generation"
     PHASE_4       = "video_generation"
     PHASE_5       = "stitch"
+    PHASE_5_5     = "post_production"
 
 
 class CharacterSpec(BaseModel):

@@ -86,6 +86,7 @@ def run_pipeline(job_id: str, request: CreateJobRequest) -> None:
         _wait_for_approval(job_id)
         _phase4(job_id, request)
         _phase5(job_id, request)
+        _phase5_5(job_id, request)
 
     except Exception as exc:
         logger.exception("Pipeline FAILED for job %s: %s", job_id, exc)
@@ -281,17 +282,89 @@ def _phase5(job_id: str, request: CreateJobRequest) -> None:
     emit_event(job_id, "phase_start", {"phase": 5, "message": "Stitching final video..."})
 
     output_path = os.path.join(config.TMP_DIR, job_id, "final.mp4")
+    transitions = None
+    if request.post_production and request.post_production.transitions:
+        transitions = request.post_production.transitions
+
     final_path = stitch_and_finalize(
         clip_paths=clip_paths,
         cta_path=config.CTA_ASSET_PATH,
         output_path=output_path,
         aspect_ratio=request.aspect_ratio,
+        transitions=transitions,
     )
     job_store.update(job_id, final_video_path=final_path)
+    emit_event(job_id, "phase_done", {"phase": 5})
+
+
+def _phase5_5(job_id: str, request: CreateJobRequest) -> None:
+    """Phase 5.5 — Post-production overlays (text + images)."""
+    job = job_store.get(job_id)
+    if not job:
+        raise RuntimeError(f"Job {job_id} not found during Phase 5.5")
+
+    if not request.post_production:
+        logger.info("Job %s: no post-production config — skipping Phase 5.5", job_id)
+        final_path = job.final_video_path
+        job_store.set_status(job_id, JobStatus.DONE, progress=100)
+        filename = os.path.basename(final_path)
+        video_url = f"/api/v2/video/{job_id}/{filename}"
+        emit_event(job_id, "done", {"video_url": video_url})
+        return
+
+    pp = request.post_production
+    has_text = bool(pp.text_overlays)
+    has_images = bool(pp.image_overlays)
+
+    if not has_text and not has_images:
+        logger.info("Job %s: no overlays configured — skipping Phase 5.5", job_id)
+        final_path = job.final_video_path
+        job_store.set_status(job_id, JobStatus.DONE, progress=100)
+        filename = os.path.basename(final_path)
+        video_url = f"/api/v2/video/{job_id}/{filename}"
+        emit_event(job_id, "done", {"video_url": video_url})
+        return
+
+    from ..video.overlay_ops import apply_image_overlay, apply_multiple_text_overlays
+
+    job_store.set_status(job_id, JobStatus.POST_PRODUCING, phase=PipelinePhase.PHASE_5_5, progress=92)
+    emit_event(job_id, "phase_start", {"phase": 5.5, "message": "Applying overlays..."})
+
+    current_path = job.final_video_path
+    work_dir = os.path.dirname(current_path)
+
+    if has_text:
+        text_output = os.path.join(work_dir, "with_text_overlays.mp4")
+        success = apply_multiple_text_overlays(current_path, text_output, pp.text_overlays)
+        if success:
+            current_path = text_output
+            logger.info("Job %s: text overlays applied", job_id)
+        else:
+            logger.warning("Job %s: text overlay failed — continuing without", job_id)
+
+    if has_images:
+        for i, img_ov in enumerate(pp.image_overlays):
+            img_output = os.path.join(work_dir, f"with_img_overlay_{i}.mp4")
+            success = apply_image_overlay(
+                current_path,
+                img_output,
+                image_path=img_ov.image_path,
+                start_time=img_ov.start_time,
+                duration=img_ov.duration,
+                position=img_ov.position,
+                width=img_ov.width,
+                opacity=img_ov.opacity,
+            )
+            if success:
+                current_path = img_output
+                logger.info("Job %s: image overlay %d applied", job_id, i)
+
+    job_store.update(job_id, final_video_path=current_path)
+    emit_event(job_id, "phase_done", {"phase": 5.5})
     job_store.set_status(job_id, JobStatus.DONE, progress=100)
 
     # Derive a public URL from the final file path
-    filename = os.path.basename(final_path)
+    filename = os.path.basename(current_path)
     video_url = f"/api/v2/video/{job_id}/{filename}"
     emit_event(job_id, "done", {"video_url": video_url})
-    logger.info("Job %s: Phase 5 complete — final video at %s", job_id, final_path)
+    logger.info("Job %s: Phase 5.5 complete — final video at %s", job_id, current_path)

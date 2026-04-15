@@ -28,6 +28,7 @@ def stitch_and_finalize(
     cta_path: str,
     output_path: str,
     aspect_ratio: str = "9:16",
+    transitions: list | None = None,
 ) -> str:
     """Assemble per-clip MP4s into a single finalized video with CTA appended.
 
@@ -114,13 +115,58 @@ def stitch_and_finalize(
         )
         normalized_paths.append(out)
 
-    # ── Step 2: Concatenate normalized clips ───────────────────────────────
+    # ── Step 2: Concatenate with optional transitions ──────────────────────
     logger.info("Phase 5 step 2: concatenating clips")
-    stitched = _tmp("stitched.mp4")
-    _require(
-        concat_clips(normalized_paths, stitched),
-        "concat_clips failed on normalized clips",
-    )
+    if transitions:
+        from ..video.overlay_ops import generate_transition
+
+        segments: list[str] = []
+        for i, norm_path in enumerate(normalized_paths):
+            segments.append(norm_path)
+            clip_num = i + 1
+
+            for trans in transitions:
+                if trans.insert_after_clip == clip_num:
+                    trans_path = _tmp(f"transition_after_clip_{clip_num}.mp4")
+                    W, H = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
+                    success = generate_transition(
+                        transition_type=trans.type,
+                        output_path=trans_path,
+                        duration=trans.duration,
+                        text=trans.text,
+                        font_size=trans.font_size,
+                        bg_color=trans.bg_color,
+                        width=W,
+                        height=H,
+                    )
+                    if success and os.path.exists(trans_path):
+                        trans_norm = _tmp(f"transition_norm_{clip_num}.mp4")
+                        _require(
+                            normalize_clip(
+                                trans_path,
+                                trans_norm,
+                                aspect_ratio=aspect_ratio,
+                                trim_to_seconds=None,
+                                add_audio_fade=False,
+                            ),
+                            f"normalize transition after clip {clip_num} failed",
+                        )
+                        segments.append(trans_norm)
+                        logger.info("Phase 5: inserted %s transition after clip %d", trans.type, clip_num)
+                    else:
+                        logger.warning("Phase 5: transition after clip %d failed — skipping", clip_num)
+
+        stitched = _tmp("stitched.mp4")
+        _require(
+            concat_clips(segments, stitched),
+            "concat_clips with transitions failed",
+        )
+    else:
+        stitched = _tmp("stitched.mp4")
+        _require(
+            concat_clips(normalized_paths, stitched),
+            "concat_clips failed on normalized clips",
+        )
     logger.info("Phase 5: stitched duration=%.2fs", probe_duration(stitched))
 
     # ── Step 3: Trim trailing dark frames ─────────────────────────────────
