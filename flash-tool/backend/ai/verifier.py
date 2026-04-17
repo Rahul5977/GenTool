@@ -77,9 +77,11 @@ def verify_prompts(clips: list[ClipPrompt]) -> list[ClipPrompt]:
     # ---------------------------------------------------------------
     clip_map: dict[int, ClipPrompt] = {c.clip_number: c for c in clips}
 
-    # SYSTEM_VERIFIER returns one JSON object per clip, so Gemini may return
-    # either a bare list (when >1 clip) or a dict (when processing one clip).
-    # Normalise both shapes into a flat list of per-clip dicts.
+    # SYSTEM_VERIFIER may return either:
+    #  - a single clip object {"clip":..., "status":...}
+    #  - a wrapper {"clips":[...], ...}
+    #  - a bare list [...]
+    # Normalize all shapes into a flat list of per-clip dicts.
     if isinstance(report, list):
         report_clips: list[dict] = report
     elif isinstance(report, dict):
@@ -99,19 +101,22 @@ def verify_prompts(clips: list[ClipPrompt]) -> list[ClipPrompt]:
             continue
 
         issues: list[str] = entry.get("issues", [])
-        status: str = entry.get("status", "pass")
+        status: str = str(entry.get("status", "approved")).strip().lower()
         improved: str = entry.get("improved_prompt", "")
 
         clip.verification_issues = issues
         clip.verified = True
 
-        if status == "fail" and improved:
+        # Backward/forward compatible status handling:
+        # old: pass/fail, new: approved/improved
+        should_apply = status in {"fail", "improved"}
+        if should_apply and improved:
             # Apply the improved prompt from the verifier
             clip.prompt = _remove_dashes(improved)
             logger.info(
                 "Clip %d: verifier applied fixes — %d issue(s)", clip_num, len(issues)
             )
-        elif status == "fail":
+        elif should_apply:
             logger.warning(
                 "Clip %d: verifier flagged issues but returned no improved_prompt", clip_num
             )

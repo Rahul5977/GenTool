@@ -238,7 +238,9 @@ def stitch_and_finalize(
     # leaves the bright flash. A 0.5s fade-in from black covers this artifact.
     # We also skip the 0.3s black pause that previously caused the video to
     # appear frozen/buffering at the ad→CTA boundary.
-    logger.info("Phase 5 step 8: applying 0.5s fade-in to CTA")
+    # Additionally, a short CTA audio fade-in prevents low-level "ghost"
+    # audio pops right after the hard ad→CTA boundary.
+    logger.info("Phase 5 step 8: applying 0.5s video fade-in + 0.12s audio fade-in to CTA")
     cta_faded = _tmp("cta_faded.mp4")
     fade_cmd = [
         _ffmpeg(), "-y", "-i", cta_baselined,
@@ -249,7 +251,8 @@ def stitch_and_finalize(
         "-color_trc", "bt709",
         "-colorspace", "bt709",
         "-video_track_timescale", "12800",
-        "-c:a", "copy",
+        "-af", "afade=t=in:st=0:d=0.12",
+        "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
         cta_faded,
     ]
     _require(_run(fade_cmd).returncode == 0, "CTA fade-in failed")

@@ -385,6 +385,29 @@ def _generate_transition_frame(
 
     custom_section = f"\n\nUSER FEEDBACK FOR THIS REGEN: {custom_prompt}" if custom_prompt else ""
 
+    # Carry domain visual-state arc into keyframe edits so post-coach clips
+    # visibly reflect posture/styling/gaze changes instead of expression only.
+    visual_state_section = ""
+    clip_brief = None
+    if 0 < clip.clip_number <= len(brief.clips):
+        clip_brief = brief.clips[clip.clip_number - 1]
+
+    if clip_brief and clip_brief.visual_state:
+        vs = clip_brief.visual_state
+        visual_state_section = (
+            "\n\nAPPLY THIS CLIP VISUAL STATE (MANDATORY):\n"
+            f"  - POSTURE: {vs.posture}\n"
+            f"  - STYLING: {vs.styling_state}\n"
+            f"  - EYE CONTACT: {vs.eye_contact_pattern}\n"
+            f"  - ENERGY: {vs.energy_level}\n"
+            f"  - VOICE REGISTER CONTEXT: {vs.voice_register}\n"
+            f"  - LIGHTING WARMTH CONTEXT: {vs.lighting_warmth}\n"
+            "IMPORTANT:\n"
+            "  - Keep the SAME identity, face structure, skin tone, hair thickness, and body build.\n"
+            "  - You MAY adjust pose, gaze, and how hair/dupatta/accessories are arranged to match state.\n"
+            "  - Do NOT introduce medical transformation or before/after body changes.\n"
+        )
+
     # Build the full instruction for the image edit
     instruction = (
         f"{SYSTEM_IMAGER}\n\n"
@@ -398,6 +421,7 @@ def _generate_transition_frame(
         f"  Background: {brief.locked_background[:300]}\n"
         f"  Camera: TIGHT MCU chin to mid-chest, eye-level, static\n"
         f"  Output: 9:16 portrait, photorealistic, no text overlays"
+        f"{visual_state_section}"
         f"{custom_section}"
     )
 

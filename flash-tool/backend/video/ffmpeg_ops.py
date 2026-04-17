@@ -81,8 +81,10 @@ def normalize_clip(
     else:
         target_duration = min(original_duration, trim_to_seconds)
 
-    # Audio fade-out starts 0.2s before the trimmed end.
-    fade_start = max(0, target_duration - 0.2)
+    # Audio fade-out starts shortly before the trimmed end to avoid tiny
+    # boundary tails ("ghost" audio) when clips are hard-concatenated.
+    fade_duration = 0.12
+    fade_start = max(0.0, target_duration - fade_duration)
 
     logger.info(
         "normalize_clip: %s  %.2fs → %.2fs (trimmed %.2fs hallucination tail)",
@@ -99,6 +101,15 @@ def normalize_clip(
         f"format=yuv420p"
     )
 
+    af_parts = ["highpass=f=80", "afftdn=nf=-25"]
+    should_apply_fade_out = (
+        add_audio_fade
+        and target_duration > fade_duration
+        and (trim_to_seconds is not None or target_duration < original_duration)
+    )
+    if should_apply_fade_out:
+        af_parts.append(f"afade=t=out:st={fade_start}:d={fade_duration}")
+
     cmd = [
         _ffmpeg(), "-y", "-i", input_path,
         "-t", str(target_duration),  # SURGICAL TRIM: hard-stop at 7.7s
@@ -109,10 +120,9 @@ def normalize_clip(
         "-color_trc", "bt709",
         "-colorspace", "bt709",
         "-video_track_timescale", "12800",
-        # Noise reduction: highpass removes room rumble below 80Hz,
-        # afftdn removes broadband ambient hum Veo bakes into generated clips.
+        # Noise reduction + optional short fade-out for cleaner cut boundaries.
         # loudnorm is applied separately in phase5_stitcher.py — do not add here.
-        "-af", "highpass=f=80,afftdn=nf=-25",
+        "-af", ",".join(af_parts),
         "-c:a", "aac", "-ar", "44100", "-ac", "2", "-b:a", "192k",
         "-shortest",
         output_path,

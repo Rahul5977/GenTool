@@ -626,7 +626,9 @@ A clip_score below 60 = critical issues — flag for user review.
 ════════════════════════════════════════════════════════════
 OUTPUT FORMAT — valid JSON only, no markdown, no explanation
 ════════════════════════════════════════════════════════════
-Return a SINGLE JSON object (no array wrapper, no "clips" key):
+Return JSON in ONE of these two valid shapes:
+
+1) Single-clip object:
 {
   "clip": <clip number>,
   "status": "approved" or "improved",
@@ -636,6 +638,21 @@ Return a SINGLE JSON object (no array wrapper, no "clips" key):
   ],
   "clip_score": <integer 0-100, computed using scoring weights above>,
   "improved_prompt": "Full corrected Hindi prompt. Identical to input if approved."
+}
+
+2) Multi-clip wrapper:
+{
+  "clips": [
+    {
+      "clip": <clip number>,
+      "status": "approved" or "improved",
+      "issues": [],
+      "clip_score": <integer 0-100>,
+      "improved_prompt": "..."
+    }
+  ],
+  "overall_score": <integer 0-100>,
+  "needs_human_review": <true|false>
 }
 
 Rules for issues list:
