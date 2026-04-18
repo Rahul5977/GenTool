@@ -110,7 +110,12 @@ def _phase1(job_id: str, request: CreateJobRequest) -> None:
     )
     emit_event(job_id, "phase_start", {"phase": 1, "message": "Analysing script..."})
 
-    brief = analyse_script(request.script, request.num_clips, request.coach)
+    brief = analyse_script(
+        request.script,
+        request.num_clips,
+        request.coach,
+        domain_hint=request.domain,
+    )
     job_store.update(job_id, production_brief=brief)
 
     char = brief.character

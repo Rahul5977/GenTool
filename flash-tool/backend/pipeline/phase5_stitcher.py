@@ -120,6 +120,11 @@ def stitch_and_finalize(
     if transitions:
         from ..video.overlay_ops import generate_transition
 
+        logger.info(
+            "Phase 5: inserting %d transition(s) (types=%s)",
+            len(transitions),
+            [getattr(t, "type", t) for t in transitions],
+        )
         segments: list[str] = []
         for i, norm_path in enumerate(normalized_paths):
             segments.append(norm_path)

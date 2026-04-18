@@ -338,6 +338,14 @@ export default function NewJobPage() {
           <span>Model: <b>{veoModel.split("-").slice(0, 2).join(" ")}</b></span>
           <span className="text-[#1a5c3a]">|</span>
           <span>Domain: <b>{domain || "auto"}</b></span>
+          <span className="text-[#1a5c3a]">|</span>
+          <span>Transition: <b>{transitionType}</b></span>
+          {textOverlays.some((o) => o.text.trim()) && (
+            <>
+              <span className="text-[#1a5c3a]">|</span>
+              <span>Text overlays: <b>{textOverlays.filter((o) => o.text.trim()).length}</b></span>
+            </>
+          )}
         </div>
 
         {error && (

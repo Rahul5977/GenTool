@@ -45,13 +45,17 @@ def analyse_script(
     script: str,
     num_clips: int,
     coach: str,
+    domain_hint: str | None = None,
 ) -> ProductionBrief:
     """Parse a raw Hindi/Hinglish script into a validated ProductionBrief.
 
     Args:
-        script:    Raw ad script text.
-        num_clips: Requested number of clips (3–8).
-        coach:     Coach name (e.g. "Rishika").
+        script:       Raw ad script text.
+        num_clips:    Requested number of clips (3–8).
+        coach:        Coach name (e.g. "Rishika").
+        domain_hint:  If set (from CreateJobRequest after auto-detect / user pick),
+                      this domain wins over Gemini's JSON ``domain`` field so the
+                      pipeline matches the UI.
 
     Returns:
         A fully-populated and validated ProductionBrief.
@@ -66,7 +70,14 @@ def analyse_script(
         f"Script:\n{script}"
     )
 
-    logger.info("Phase 1: calling Gemini to analyse script (%d clips)", num_clips)
+    if domain_hint and str(domain_hint).strip():
+        logger.info(
+            "Phase 1: calling Gemini (%d clips) — domain_hint=%r will override model domain",
+            num_clips,
+            domain_hint.strip().lower(),
+        )
+    else:
+        logger.info("Phase 1: calling Gemini to analyse script (%d clips)", num_clips)
 
     # Gemini can occasionally return fewer clips than requested.
     # Retry a few times with stricter instructions so the pipeline does not
@@ -88,7 +99,7 @@ def analyse_script(
             temperature=0.1,
         )
 
-        candidate = _parse_brief(raw, coach, script)
+        candidate = _parse_brief(raw, coach, script, domain_hint=domain_hint)
         candidate = _validate_and_fix(candidate, num_clips)
 
         if len(candidate.clips) == num_clips:
@@ -117,7 +128,12 @@ def analyse_script(
 # Parsing
 # ---------------------------------------------------------------------------
 
-def _parse_brief(raw: dict, coach: str, script_text: str) -> ProductionBrief:
+def _parse_brief(
+    raw: dict,
+    coach: str,
+    script_text: str,
+    domain_hint: str | None = None,
+) -> ProductionBrief:
     """Convert the raw Gemini dict into a ProductionBrief."""
     try:
         character = CharacterSpec(**raw["character"])
@@ -150,7 +166,10 @@ def _parse_brief(raw: dict, coach: str, script_text: str) -> ProductionBrief:
     )
 
     # ── Domain profiler integration ──
-    domain = raw.get("domain", None) or detect_domain(script_text)
+    if domain_hint and str(domain_hint).strip():
+        domain = str(domain_hint).strip().lower()
+    else:
+        domain = raw.get("domain", None) or detect_domain(script_text)
     coach_clip = raw.get("coach_clip", None) or detect_coach_clip(clips, len(clips))
 
     profile = get_domain_profile(domain)
