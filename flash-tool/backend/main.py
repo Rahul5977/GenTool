@@ -42,6 +42,20 @@ from .models import KeyFrame
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
+def _cors_allow_origins() -> list[str]:
+    """Dev-friendly defaults; override with CORS_ORIGINS=comma-separated URLs."""
+    raw = os.getenv("CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
+
+
 app = FastAPI(title="Flash Tool API", version="2.0.0")
 
 
@@ -57,9 +71,10 @@ async def _startup():
     os.makedirs(config.TMP_DIR, exist_ok=True)
     logger.info("Flash Tool v2 started — TMP_DIR=%s", config.TMP_DIR)
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001"],
+    allow_origins=_cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -129,6 +144,7 @@ async def create_job(body: CreateJobRequest):
         num_clips=body.num_clips,
         aspect_ratio=body.aspect_ratio,
         domain=body.domain or "general",
+        veo_model=body.veo_model,
         post_production=body.post_production,
     )
     job_store.create(job)
@@ -501,6 +517,8 @@ async def regen_clip(job_id: str, body: RegenClipRequest):
     # Allow user to supply a modified prompt for this regen attempt
     effective_prompt = body.updated_prompt if body.updated_prompt else clip.prompt
 
+    veo_model = (job.veo_model or "").strip() or config.VEO_MODEL
+
     new_path = await asyncio.get_event_loop().run_in_executor(
         None,
         lambda: generate_single_clip(
@@ -510,7 +528,7 @@ async def regen_clip(job_id: str, body: RegenClipRequest):
             prompt=effective_prompt,
             first_frame=keyframes[clip_index],
             last_frame=keyframes[clip_index + 1],
-            veo_model=config.VEO_MODEL,
+            veo_model=veo_model,
             aspect_ratio=job.aspect_ratio,
             job_id=job_id,
         ),
@@ -546,6 +564,17 @@ async def restitch(job_id: str, body: RestitchRequest):
     clip_paths = list(job.clip_paths)
     if not clip_paths:
         raise HTTPException(status_code=409, detail="No clip paths available for restitch")
+
+    if body.clip_indices is not None and len(body.clip_indices) > 0:
+        n = len(clip_paths)
+        ordered = sorted(set(body.clip_indices))
+        bad = [i for i in ordered if i < 0 or i >= n]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"clip_indices out of range for {n} clips: {bad}",
+            )
+        clip_paths = [clip_paths[i] for i in ordered]
 
     missing = [p for p in clip_paths if not p or not os.path.isfile(p)]
     if missing:

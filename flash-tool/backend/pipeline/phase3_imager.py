@@ -322,6 +322,23 @@ def _generate_reference_frame(
         f"from a small Indian city. {domain_modifiers}"
     )
 
+    # Opening clip body language — must match script + domain pre-coach state
+    if brief.clips:
+        cb0 = brief.clips[0]
+        prompt += (
+            f"\n\nOPENING SCRIPT BEAT (clip 1): {cb0.emotional_state}. "
+            f"Body language and gaze must feel like THIS moment — not a generic smile."
+        )
+        if cb0.visual_state:
+            v0 = cb0.visual_state
+            prompt += (
+                f"\n\nOPENING VISUAL STATE (mandatory in pose and gaze):\n"
+                f"Posture: {v0.posture}\n"
+                f"Styling: {v0.styling_state}\n"
+                f"Eye contact: {v0.eye_contact_pattern}\n"
+                f"Energy: {v0.energy_level}\n"
+            )
+
     # Append user's custom feedback if provided
     if custom_prompt:
         prompt += f"\n\nUSER FEEDBACK FOR THIS REGEN: {custom_prompt}"
@@ -408,20 +425,42 @@ def _generate_transition_frame(
             "  - Do NOT introduce medical transformation or before/after body changes.\n"
         )
 
+    emotional_arc_section = ""
+    if clip_brief:
+        emotional_arc_section = (
+            "\n\nEMOTIONAL ARC FOR THIS CLIP (MANDATORY — match the script beat):\n"
+            f"  - Scene beat (from prompt): {clip.scene_summary}\n"
+            f"  - Dominant emotional_state (script analysis): {clip_brief.emotional_state}\n"
+            "The face and body language must READ this beat clearly at a glance.\n"
+            "This is an ending keyframe after dialogue — settle the face to match end_emotion,\n"
+            "but posture/gaze/styling must also match the arc above (not a neutral passport photo).\n"
+        )
+
+    # Precedence: arc + visual state must win over generic "expression only" in SYSTEM_IMAGER.
+    precedence = (
+        "\n\nPRECEDENCE (READ LAST):\n"
+        "Sections 'EMOTIONAL ARC FOR THIS CLIP' and 'APPLY THIS CLIP VISUAL STATE' override\n"
+        "any earlier instruction that forbids changing hair framing, dupatta drape, head tilt,\n"
+        "shoulder line, or gaze. Apply them VISIBLY. Identity + same room + same garments stay.\n"
+    )
+
     # Build the full instruction for the image edit
     instruction = (
         f"{SYSTEM_IMAGER}\n\n"
-        f"TARGET EXPRESSION: {target_emotion}\n\n"
-        f"KEEP IDENTICAL:\n"
-        f"  Skin hex: {char.skin_hex}\n"
-        f"  Hair: {char.hair}\n"
-        f"  Outfit: {char.outfit}\n"
-        f"  Accessories: {accessories_str}\n"
-        f"  Distinguishing marks: {marks_str}\n"
-        f"  Background: {brief.locked_background[:300]}\n"
-        f"  Camera: TIGHT MCU chin to mid-chest, eye-level, static\n"
-        f"  Output: 9:16 portrait, photorealistic, no text overlays"
+        f"TARGET EXPRESSION (end of clip, settle to rest): {target_emotion}\n\n"
+        "IDENTITY + SCENE LOCK (non-negotiable):\n"
+        f"  Same person — skin hex {char.skin_hex}, same bone structure, same pore texture level.\n"
+        f"  Same garments and colours: {char.outfit}\n"
+        f"  Same accessories (positions may shift slightly with posture): {accessories_str}\n"
+        f"  Same marks: {marks_str}\n"
+        f"  Same room/background (no new objects, no swaps): {brief.locked_background[:400]}\n"
+        "  TIGHT MCU, eye-level, static camera — same framing scale as input (no zoom).\n\n"
+        "ALLOWED FOR ARC (you must use these — do not freeze the input pose):\n"
+        "  Face muscle state for TARGET EXPRESSION; gaze direction; subtle head tilt ≤15°;\n"
+        "  visible shoulder line and upper-chest tension; hair/dupatta re-framing on SAME hair/outfit.\n\n"
+        f"Output: 9:16 portrait, photorealistic, no text overlays.{emotional_arc_section}"
         f"{visual_state_section}"
+        f"{precedence}"
         f"{custom_section}"
     )
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type ClipPrompt } from "@/lib/api";
+import { api, API_BASE_URL, type ClipPrompt } from "@/lib/api";
 
 interface EditState {
   [clipIndex: number]: string; // clip index → current prompt text
@@ -34,9 +34,7 @@ export default function ReviewPromptsPage() {
       // to verify the job is in the right state, then build the clips from
       // the job store via a dedicated endpoint.
       // For now we read clips from a GET that mirrors job status but with clips.
-      const resp = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v2/jobs/${id}/clips`
-      );
+      const resp = await fetch(`${API_BASE_URL}/api/v2/jobs/${id}/clips`);
       if (resp.ok) {
         const data = await resp.json();
         const fetchedClips: ClipPrompt[] = data.clips ?? [];

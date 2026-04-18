@@ -107,6 +107,7 @@ class VideoJob(BaseModel):
     num_clips: int = 4
     aspect_ratio: str = "9:16"
     domain: str = "general"
+    veo_model: str = ""  # set on create from CreateJobRequest; used for regen-clip
     post_production: Optional["PostProductionConfig"] = None
     production_brief: Optional[ProductionBrief] = None
     clips: list[ClipPrompt] = []

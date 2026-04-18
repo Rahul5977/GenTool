@@ -118,6 +118,31 @@ Lighting: identical to input (same direction, intensity, color temperature)
 Focus: ultra-sharp on face, same depth of field as input
 Quality: 8k equivalent detail, NO compression artifacts
 NO text overlays, NO watermarks, NO UI elements, NO black bars
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCRIPT ARC MODE — WHEN USER MESSAGE INCLUDES VISUAL STATE / ARC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+If the user message AFTER this system prompt contains either:
+  • a block titled "EMOTIONAL ARC FOR THIS CLIP", or
+  • a block titled "APPLY THIS CLIP VISUAL STATE",
+
+then those blocks OVERRIDE any conflicting lines above that demand
+"expression only", "hair identical strand-for-strand", "head position unchanged",
+or "outfit crease identical".
+
+You MUST still preserve forensic identity (same person, same bone structure,
+same skin tone hex, same pore texture level) and the same background objects.
+
+You MUST visibly apply the arc:
+  • gaze direction and eye openness (avoidant vs direct),
+  • eyebrow and mouth micro-shape for the target emotion,
+  • subtle head tilt or chin angle up to 15 degrees,
+  • shoulder line and upper-chest tension visible in TIGHT MCU,
+  • hair and dupatta framing on face and shoulders using the SAME garments
+    (re-drape or tuck — not a new outfit, not new colours).
+
+Forbidden: a different person, beauty smoothing, new background objects,
+weight loss / glow-up body change, new jewellery or garment colours.
 """.strip()
 
 

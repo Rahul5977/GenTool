@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, type JobStatus, type ClipPrompt } from "@/lib/api";
+import { api, API_BASE_URL, type JobStatus, type ClipPrompt } from "@/lib/api";
 import VideoPlayer from "@/components/VideoPlayer";
 
 interface ClipRegenState {
@@ -13,7 +13,6 @@ interface ClipRegenState {
 
 export default function ResultPage() {
   const { id } = useParams<{ id: string }>();
-  const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [clips, setClips] = useState<ClipPrompt[]>([]);
   const [clipRegenStates, setClipRegenStates] = useState<Record<number, ClipRegenState>>({});
@@ -32,7 +31,7 @@ export default function ResultPage() {
       try {
         const [status, clipsResp] = await Promise.all([
           api.getJobStatus(id),
-          fetch(`${BASE}/api/v2/jobs/${id}/clips`).then((r) => (r.ok ? r.json() : { clips: [] })),
+          fetch(`${API_BASE_URL}/api/v2/jobs/${id}/clips`).then((r) => (r.ok ? r.json() : { clips: [] })),
         ]);
         setJobStatus(status);
         if (status.final_video_path) {
@@ -58,7 +57,7 @@ export default function ResultPage() {
       }
     }
     load();
-  }, [id, BASE]);
+  }, [id]);
 
   function setClipState(clipIndex: number, patch: Partial<ClipRegenState>) {
     setClipRegenStates((prev) => {
@@ -135,7 +134,7 @@ export default function ResultPage() {
     setRestitching(true);
     try {
       const result = await api.restitch(id, indices);
-      setCurrentVideoUrl(`${BASE}${result.video_url}`);
+      setCurrentVideoUrl(`${API_BASE_URL}${result.video_url}`);
       setSelectedClips(new Set());
       setJobStatus((prev) => (prev ? { ...prev, status: "done" } : prev));
     } catch (e: unknown) {
