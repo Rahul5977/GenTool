@@ -16,22 +16,35 @@ if [ ! -f .env ]; then
   echo "  ⚠  Created backend/.env from .env.example — add your GOOGLE_API_KEY"
 fi
 if ! python3 -m pip install -r requirements.txt -q; then
-  echo "  ⚠  Dependency install failed; attempting httpx metadata cleanup…"
-  STALE_HTTPX_DIST="$(python3 - <<'PY'
+  echo "  ⚠  Dependency install failed; retrying with --ignore-installed…"
+  if ! python3 -m pip install -r requirements.txt -q --ignore-installed; then
+    echo "  ⚠  Still failing; removing broken httpx dist-info trees…"
+    while IFS= read -r bad_path; do
+      [ -z "$bad_path" ] && continue
+      [ -d "$bad_path" ] && rm -rf "$bad_path" && echo "  Removed: $bad_path"
+    done < <(python3 - <<'PY'
 import importlib.metadata as m
-for d in m.distributions():
-    path = str(getattr(d, "_path", ""))
-    name = (d.metadata.get("Name") or "").strip().lower()
-    mv = (d.metadata.get("Metadata-Version") or "").strip()
-    if "httpx-" in path and ".dist-info" in path and (not name or not mv):
-        print(path)
-        break
+from pathlib import Path
+
+seen = set()
+for dist in m.distributions():
+    meta = Path(str(getattr(dist, "_path", "")))
+    if ".dist-info" not in str(meta):
+        continue
+    name = (dist.metadata.get("Name") or "").strip().lower()
+    if name != "httpx" and "httpx" not in meta.name.lower():
+        continue
+    record = meta / "RECORD"
+    meta_ver = (dist.metadata.get("Metadata-Version") or "").strip()
+    if not record.is_file() or not name or not meta_ver:
+        s = str(meta.resolve())
+        if s not in seen:
+            seen.add(s)
+            print(s)
 PY
-)"
-  if [ -n "$STALE_HTTPX_DIST" ] && [ -d "$STALE_HTTPX_DIST" ]; then
-    rm -rf "$STALE_HTTPX_DIST"
+)
+    python3 -m pip install -r requirements.txt -q
   fi
-  python3 -m pip install -r requirements.txt -q
 fi
 
 echo "  [2/4] Starting backend on :8020…"
@@ -73,8 +86,18 @@ if [ ! -f .env.local ]; then
 fi
 npm install --silent
 
-echo "  [4/4] Starting frontend on :3000…"
-npm run dev &
+# First free port in range (avoids Next silently jumping to 3001 while we still print 3000).
+FRONTEND_PORT=""
+for p in 3000 3001 3002 3003 3004 3005; do
+  if [ -z "$(lsof -t -iTCP:"$p" -sTCP:LISTEN 2>/dev/null | head -n 1)" ]; then
+    FRONTEND_PORT=$p
+    break
+  fi
+done
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+
+echo "  [4/4] Starting frontend on :${FRONTEND_PORT}…"
+npm run dev -- --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 echo "  Frontend PID: $FRONTEND_PID"
 
@@ -82,7 +105,7 @@ echo "  Frontend PID: $FRONTEND_PID"
 echo ""
 echo "  ─────────────────────────────────────────"
 echo "  Backend  →  http://localhost:8020"
-echo "  Frontend →  http://localhost:3000"
+echo "  Frontend →  http://localhost:${FRONTEND_PORT}"
 echo "  API docs →  http://localhost:8020/docs"
 echo "  ─────────────────────────────────────────"
 echo ""
