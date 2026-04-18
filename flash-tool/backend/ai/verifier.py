@@ -35,6 +35,22 @@ def verify_prompts(clips: list[ClipPrompt]) -> list[ClipPrompt]:
         clip.prompt = _remove_dashes(clip.prompt)
         clip.dialogue = _remove_dashes(clip.dialogue)
 
+    # Pre-check: catch non-Devanagari Indic characters in dialogue before
+    # sending to Gemini. These characters pass silently through Rule 12a
+    # (which only checks for Roman/English) and cause Veo to switch TTS languages.
+    for clip in clips:
+        for char in clip.dialogue:
+            cp = ord(char)
+            if 0x0980 <= cp <= 0x0DFF:
+                logger.critical(
+                    "Verifier pre-check: Clip %d dialogue contains non-Devanagari "
+                    "Indic char '%s' (U+%04X) — this will cause language drift in Veo TTS.",
+                    clip.clip_number,
+                    char,
+                    cp,
+                )
+                break
+
     # ---------------------------------------------------------------
     # Step 2 — build user message for Gemini verifier
     # ---------------------------------------------------------------

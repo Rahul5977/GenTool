@@ -13,6 +13,44 @@ from ..prompts.system_prompter import SYSTEM_PROMPTER
 
 logger = logging.getLogger(__name__)
 
+# Devanagari primary block is U+0900–U+097F; these ranges are other Indic scripts
+# that must not appear in dialogue (Veo TTS / lip-sync language drift).
+_NON_DEVANAGARI_INDIC_RANGES = [
+    (0x0980, 0x09FF),  # Bengali
+    (0x0A00, 0x0A7F),  # Gurmukhi
+    (0x0A80, 0x0AFF),  # Gujarati
+    (0x0B00, 0x0B7F),  # Oriya
+    (0x0B80, 0x0BFF),  # Tamil
+    (0x0C00, 0x0C7F),  # Telugu
+    (0x0C80, 0x0CFF),  # Kannada
+    (0x0D00, 0x0D7F),  # Malayalam
+    (0x0D80, 0x0DFF),  # Sinhala
+]
+
+
+def _contains_non_devanagari_indic(text: str) -> tuple[bool, str]:
+    """Return (True, offending_char) if text contains non-Devanagari Indic script."""
+    for char in text:
+        cp = ord(char)
+        for start, end in _NON_DEVANAGARI_INDIC_RANGES:
+            if start <= cp <= end:
+                return True, char
+    return False, ""
+
+
+def _enforce_devanagari_dialogue(clip_prompts: list[ClipPrompt]) -> list[ClipPrompt]:
+    """Hard guard: dialogue must not contain non-Devanagari Indic scripts."""
+    for clip in clip_prompts:
+        has_bad, bad_char = _contains_non_devanagari_indic(clip.dialogue)
+        if has_bad:
+            raise RuntimeError(
+                f"CRITICAL: Clip {clip.clip_number} dialogue contains non-Devanagari "
+                f"Indic character '{bad_char}' (U+{ord(bad_char):04X}). "
+                f"This will cause Veo TTS to switch languages and break lip-sync. "
+                f"Dialogue: {clip.dialogue[:200]}"
+            )
+    return clip_prompts
+
 
 def generate_prompts(brief: ProductionBrief) -> list[ClipPrompt]:
     """Generate and verify per-clip Veo prompts from a ProductionBrief.
@@ -49,6 +87,7 @@ def generate_prompts(brief: ProductionBrief) -> list[ClipPrompt]:
     # Verifier applies the rules and auto-fixes issues in-place
     logger.info("Phase 2: running verifier on %d clips", len(clip_prompts))
     clip_prompts = verify_prompts(clip_prompts)
+    clip_prompts = _enforce_devanagari_dialogue(clip_prompts)
 
     logger.info(
         "Phase 2 complete — %d verified clips, issues: %s",

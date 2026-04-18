@@ -235,10 +235,11 @@ def build_transition_frame_prompt(
     Returns:
         User message string to send with the previous keyframe image.
     """
-    prev_keyframe = clip_number - 1
     return (
-        f"Look at the provided image. This is keyframe {prev_keyframe} — "
-        f"the starting frame of Clip {clip_number}.\n\n"
+        f"Look at the provided image. This is the MASTER REFERENCE FRAME — "
+        f"the original character anchor generated for this video. "
+        f"Every keyframe is generated from this same image. "
+        f"Do NOT treat this as a sequential frame from earlier in the video.\n\n"
         f"Generate keyframe {clip_number} — the ENDING frame of Clip {clip_number} "
         f"(out of {total_clips} total clips).\n\n"
         f"TARGET EXPRESSION: {end_emotion}\n\n"
