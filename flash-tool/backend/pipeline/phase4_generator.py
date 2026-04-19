@@ -146,7 +146,7 @@ def generate_single_clip(
     out_dir = os.path.join(config.TMP_DIR, job_id)
     out_path = os.path.join(out_dir, f"clip_{clip_number:02d}.mp4")
 
-    current_prompt = prompt
+    current_prompt = _strip_rephrase_markers(prompt)
     last_exc: Exception = RuntimeError("No attempts made")
     attempts_made = 0
 
@@ -156,8 +156,8 @@ def generate_single_clip(
             "Phase 4: clip %d/%d — attempt %d/%d", clip_number, total, attempt, MAX_RETRIES
         )
         try:
-            # Step 1 — sanitize block words
-            sanitized = veo_client.sanitize_prompt(current_prompt)
+            # Step 1 — sanitize block words (never send internal markers to Veo/Gemini sanitize)
+            sanitized = veo_client.sanitize_prompt(_strip_rephrase_markers(current_prompt))
 
             # Step 2 — generate via Veo
             mp4_bytes = veo_client.generate_clip(
@@ -186,7 +186,7 @@ def generate_single_clip(
             )
             if attempt < MAX_RETRIES:
                 logger.info("Phase 4: clip %d — rephrasing prompt after content block", clip_number)
-                current_prompt = _rephrase_blocked_prompt(current_prompt, str(exc))
+                current_prompt = _rephrase_blocked_prompt(current_prompt, str(exc), attempt)
             # No sleep needed for content policy — rephrase is immediate
 
         except Exception as exc:
@@ -209,15 +209,34 @@ def generate_single_clip(
                 logger.warning("Phase 4: clip %d — non-transient error, stopping retries", clip_number)
                 break
 
+    msg = str(last_exc)
+    hint = ""
+    if isinstance(last_exc, ContentPolicyError) or "silent content filter" in msg.lower():
+        hint = (
+            " Veo applied a silent safety filter (no video returned). "
+            "Open prompt review for this clip, soften or remove medical / sexual-health / "
+            "weight-or-skin outcome language in DIALOGUE and ACTION, save, then use "
+            "Regenerate clip on the result page."
+        )
     raise RuntimeError(
         f"clip_{clip_number:02d} failed after {attempts_made} attempt(s). "
-        f"Last error: {last_exc}"
+        f"Last error: {last_exc}.{hint}"
     ) from last_exc
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_REPHRASE_MARKER = "__REPHRASE_ATTEMPT__"
+
+
+def _strip_rephrase_markers(text: str) -> str:
+    """Remove legacy internal markers so they are never sent to Veo."""
+    if _REPHRASE_MARKER not in text:
+        return text.strip()
+    return text.replace(_REPHRASE_MARKER, "").strip()
+
 
 def _is_transient(exc: Exception) -> bool:
     """Return True for errors that may resolve on retry (503, timeout, etc.)."""
@@ -244,16 +263,13 @@ def _is_transient(exc: Exception) -> bool:
     return any(s in msg for s in transient_signals)
 
 
-def _rephrase_blocked_prompt(prompt: str, block_reason: str) -> str:
+def _rephrase_blocked_prompt(prompt: str, block_reason: str, attempt: int) -> str:
     """Use Gemini to rephrase a RAI-blocked Veo prompt.
 
     Applies aggressive content-safe rephrasing using emotional equivalents
     while preserving structural sections (FACE LOCK, CAMERA, AUDIO, etc.) verbatim.
     """
-    # Derive attempt number from how many times this prompt has been rephrased
-    # (count occurrences of the rephrase marker, default to 1)
-    attempt = prompt.count("__REPHRASE_ATTEMPT__") + 1
-    marker = "__REPHRASE_ATTEMPT__" * attempt
+    clean_prompt = _strip_rephrase_markers(prompt)
 
     system = """You are a Veo content policy expert. Sanitize video generation prompts so they NEVER get blocked by Google Veo.
 
@@ -301,10 +317,20 @@ MUST KEEP EXACTLY AS-IS:
 
 Output the rewritten prompt ONLY — no preamble, no explanation."""
 
+    extra = ""
+    if attempt >= 4:
+        extra = (
+            "\n\nThis is a high-attempt rephrase: aggressively simplify DIALOGUE lines "
+            "that mention illness, treatment, sexual health, weight change, or "
+            "skin improvement — use vague emotional Hindi the same syllable count "
+            "where possible so lip-sync still works."
+        )
+
     user_message = (
         f"This Veo prompt was BLOCKED by safety policy. "
         f"Aggressive rephrase attempt {attempt}. Block reason: {block_reason}\n\n"
-        f"ORIGINAL BLOCKED PROMPT:\n{prompt}"
+        f"ORIGINAL BLOCKED PROMPT:\n{clean_prompt}"
+        f"{extra}"
     )
 
     try:
@@ -313,9 +339,8 @@ Output the rewritten prompt ONLY — no preamble, no explanation."""
             user_prompt=user_message,
             temperature=0.3,
         )
-        # Append marker so next attempt increments the count
         logger.info("Phase 4: prompt rephrased after RAI block (attempt %d)", attempt)
-        return rephrased + marker
+        return _strip_rephrase_markers(rephrased)
     except Exception as exc:
-        logger.warning("Phase 4: prompt rephrase failed (%s) — using original", exc)
-        return prompt
+        logger.warning("Phase 4: prompt rephrase failed (%s) — using cleaned original", exc)
+        return clean_prompt
