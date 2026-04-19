@@ -60,6 +60,8 @@ app = FastAPI(title="Flash Tool API", version="2.0.0")
 
 
 class RestitchRequest(BaseModel):
+    # If set, ONLY these clip files are concatenated (subset export). For a full ad
+    # after regen, omit or send null — job.clip_paths already has updated paths.
     clip_indices: list[int] | None = None
 
 

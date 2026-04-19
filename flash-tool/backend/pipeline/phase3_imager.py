@@ -36,7 +36,11 @@ from .. import config
 from ..ai.imagen_client import imagen_client
 from ..ai.gemini_client import gemini_image_client
 from ..models import ClipPrompt, KeyFrame, ProductionBrief
-from ..prompts.system_imager import build_imagen_prompt, SYSTEM_IMAGER
+from ..prompts.system_imager import (
+    build_imagen_prompt,
+    build_transition_frame_prompt,
+    SYSTEM_IMAGER,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -444,24 +448,21 @@ def _generate_transition_frame(
         "shoulder line, or gaze. Apply them VISIBLY. Identity + same room + same garments stay.\n"
     )
 
-    # Build the full instruction for the image edit
+    total_clips = len(brief.clips) if brief.clips else clip.clip_number
+    user_message = build_transition_frame_prompt(
+        end_emotion=target_emotion,
+        clip_number=clip.clip_number,
+        total_clips=total_clips,
+        accessories_str=accessories_str,
+        marks_str=marks_str,
+        hair_str=char.hair,
+        outfit_str=char.outfit,
+        skin_hex=char.skin_hex,
+    )
+
     instruction = (
-        f"{SYSTEM_IMAGER}\n\n"
-        f"TARGET EXPRESSION (end of clip, settle to rest): {target_emotion}\n\n"
-        "IDENTITY + SCENE LOCK (non-negotiable):\n"
-        f"  Same person — skin hex {char.skin_hex}, same bone structure, same pore texture level.\n"
-        f"  Same garments and colours: {char.outfit}\n"
-        f"  Same accessories (positions may shift slightly with posture): {accessories_str}\n"
-        f"  Same marks: {marks_str}\n"
-        f"  Same room/background (no new objects, no swaps): {brief.locked_background[:400]}\n"
-        "  TIGHT MCU, eye-level, static camera — same framing scale as input (no zoom).\n\n"
-        "ALLOWED FOR ARC (you must use these — do not freeze the input pose):\n"
-        "  Face muscle state for TARGET EXPRESSION; gaze direction; subtle head tilt ≤15°;\n"
-        "  visible shoulder line and upper-chest tension; hair/dupatta re-framing on SAME hair/outfit.\n\n"
-        f"Output: 9:16 portrait, photorealistic, no text overlays.{emotional_arc_section}"
-        f"{visual_state_section}"
-        f"{precedence}"
-        f"{custom_section}"
+        f"{SYSTEM_IMAGER}\n\n{user_message}{emotional_arc_section}"
+        f"{visual_state_section}{precedence}{custom_section}"
     )
 
     result_b64 = gemini_image_client.edit_expression(

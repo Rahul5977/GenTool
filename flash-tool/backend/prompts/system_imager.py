@@ -221,6 +221,11 @@ def build_transition_frame_prompt(
     end_emotion: str,
     clip_number: int,
     total_clips: int,
+    accessories_str: str,
+    marks_str: str,
+    hair_str: str,
+    outfit_str: str,
+    skin_hex: str,
 ) -> str:
     """Build the user message for the Gemini Flash Image expression edit call.
 
@@ -228,9 +233,14 @@ def build_transition_frame_prompt(
     which is also the STARTING frame of clip[clip_number].
 
     Args:
-        end_emotion:   The target end expression from ClipPrompt.end_emotion.
-        clip_number:   1-based clip number whose end-frame this produces.
-        total_clips:   Total number of clips in the ad.
+        end_emotion:     The target end expression from ClipPrompt.end_emotion.
+        clip_number:     1-based clip number whose end-frame this produces.
+        total_clips:     Total number of clips in the ad.
+        accessories_str: Comma-separated accessories to preserve (e.g. bindi, earrings).
+        marks_str:       Comma-separated distinguishing marks.
+        hair_str:        Full hair description from character spec.
+        outfit_str:      Full outfit description from character spec.
+        skin_hex:        Locked skin tone hex (e.g. #C68642).
 
     Returns:
         User message string to send with the previous keyframe image.
@@ -246,6 +256,18 @@ def build_transition_frame_prompt(
         f"SETTLE-TO-REST CONTEXT: The character has just finished speaking. "
         f"They are settling to a rest position. "
         f"Mouth should be closed or just closing — the speaking is done.\n\n"
+        f"MANDATORY ACCESSORIES — ALL MUST APPEAR IN OUTPUT (these are disappearing "
+        f"between frames — this is the #1 hallucination bug):\n"
+        f"  {accessories_str}\n"
+        f"ALL accessories MUST appear — bindi, earrings, necklace, bangles — "
+        f"EXACT same items as Frame 0. None may disappear.\n\n"
+        f"MANDATORY DISTINGUISHING MARKS:\n"
+        f"  {marks_str}\n\n"
+        f"HAIR — MUST MATCH INPUT EXACTLY:\n"
+        f"  {hair_str}\n\n"
+        f"OUTFIT — MUST MATCH INPUT EXACTLY:\n"
+        f"  {outfit_str}\n\n"
+        f"SKIN TONE LOCK: {skin_hex} — do NOT lighten by even 1%.\n\n"
         f"KEEP EVERYTHING ELSE PIXEL-PERFECT IDENTICAL:\n"
         f"  — Face structure, bone structure, skin texture, all moles and marks\n"
         f"  — SKIN TONE ENFORCEMENT (CRITICAL): The subject has medium wheatish brown skin.\n"
@@ -259,10 +281,15 @@ def build_transition_frame_prompt(
         f"  — Outfit: identical garment, identical color, identical drape\n"
         f"  — Accessories: every item at identical position\n"
         f"  — Background: every object in every exact position — DO NOT change background\n"
-        f"  — Camera framing: TIGHT MCU, chin to mid-chest, eye-level\n"
-        f"  — Camera distance: identical to input image — same amount of room visible "
-        f"around the subject. Do NOT zoom in. Do NOT bring the face closer to camera. "
-        f"The character should occupy the same proportion of the frame as in the input.\n"
+        f"CAMERA FRAMING LOCK — CRITICAL (currently drifting every frame):\n"
+        f"  The character must occupy the EXACT same proportion of the frame as the input image.\n"
+        f"  Measure: distance from top of head to top of frame = IDENTICAL to input.\n"
+        f"  Measure: distance from shoulders to side of frame = IDENTICAL to input.\n"
+        f"  Do NOT zoom in even 5%. Do NOT zoom out even 5%.\n"
+        f"  If output character is larger in frame than input → REJECT and regenerate.\n"
+        f"  If output character is smaller in frame than input → REJECT and regenerate.\n"
+        f"  TIGHT MCU: chin visible at bottom, mid-chest visible, eye-level angle.\n"
+        f"  Character centered horizontally.\n\n"
         f"  — Hands/arms: completely out of frame — NOT VISIBLE (same as input image)\n"
         f"  — Lighting: same direction, same temperature, same shadow fill\n"
         f"  — Head position: same tilt and turn — ONLY the expression changes\n"

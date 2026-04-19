@@ -133,7 +133,9 @@ export default function ResultPage() {
 
     setRestitching(true);
     try {
-      const result = await api.restitch(id, indices);
+      // Omit clip_indices so the server stitches ALL clip_paths. Passing only the
+      // regen'd indices produced a final video containing just those clips (bug).
+      const result = await api.restitch(id);
       setCurrentVideoUrl(`${API_BASE_URL}${result.video_url}`);
       setSelectedClips(new Set());
       setJobStatus((prev) => (prev ? { ...prev, status: "done" } : prev));
